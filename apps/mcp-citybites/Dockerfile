@@ -45,6 +45,7 @@ RUN apt-get update -qq && \
 
 # Install node modules
 COPY package-lock.json package.json ./
+COPY scripts ./scripts
 RUN npm ci --include=dev
 
 # Install Playwright browsers and system dependencies
