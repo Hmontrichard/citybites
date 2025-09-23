@@ -75,6 +75,9 @@ const DEFAULT_FILTERS: ThemeFilter[] = [
 
 const OVERPASS_USER_AGENT =
   process.env.OVERPASS_USER_AGENT ?? "CityBitesMCP/0.1 (+https://citybites.ai/contact)";
+const CACHE_TTL_MS = Number(process.env.OVERPASS_CACHE_TTL_MS ?? 1000 * 60 * 60 * 24);
+type CacheEntry<T> = { value: T; expiresAt: number };
+const overpassCache = new Map<string, CacheEntry<OverpassElement[]>>();
 
 type OverpassElement = {
   id: number;
@@ -231,11 +234,18 @@ out center 25;
 `;
 }
 
-async function executeOverpass(query: string) {
+async function executeOverpass(query: string, cacheKey: string) {
+  const now = Date.now();
+  const cached = overpassCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
+  }
+
   const endpointsToTry = OVERPASS_ENDPOINTS.length > 0 ? OVERPASS_ENDPOINTS : DEFAULT_OVERPASS_ENDPOINTS;
   const errors: string[] = [];
 
   for (const endpoint of endpointsToTry) {
+    const start = Date.now();
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -253,7 +263,12 @@ async function executeOverpass(query: string) {
       }
 
       const payload = (await response.json()) as { elements?: OverpassElement[] };
-      return payload.elements ?? [];
+      const elements = payload.elements ?? [];
+      overpassCache.set(cacheKey, { value: elements, expiresAt: now + CACHE_TTL_MS });
+      console.log(
+        `Overpass ${endpoint} → ${elements.length} résultats (${Date.now() - start}ms) cacheKey=${cacheKey}`,
+      );
+      return elements;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       errors.push(`${endpoint} → ${message}`);
@@ -569,9 +584,10 @@ export async function handlePlacesSearch(input: PlacesSearchInput): Promise<Plac
   }
 
   const overpassQuery = buildOverpassQuery(city, query);
+  const cacheKey = `${normalise(city)}::${query ? normalise(query) : "_default"}`;
 
   try {
-    const elements = await executeOverpass(overpassQuery);
+    const elements = await executeOverpass(overpassQuery, cacheKey);
 
     const results = elements
       .map((element): { id: string; name: string; lat: number; lon: number; notes?: string } | undefined => {
