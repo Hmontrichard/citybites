@@ -9,6 +9,7 @@ type GeneratePayload = {
 type PlacesSearchResponse = {
   source: string;
   results: Array<{ id: string; name: string; lat: number; lon: number; notes?: string }>;
+  warning?: string;
 };
 
 type RouteOptimizeResponse = {
@@ -19,11 +20,17 @@ type RouteOptimizeResponse = {
 type MapsExportResponse = {
   filename: string;
   content: string;
+  mimeType?: string;
 };
 
 type PdfBuildResponse = {
   filename: string;
   content: string;
+  format: "pdf" | "html";
+  encoding?: "base64" | "utf-8";
+  mimeType?: string;
+  htmlFallback?: string;
+  warning?: string;
 };
 
 const SERVICE_URL = (process.env.MCP_SERVICE_URL ?? "http://localhost:3001").replace(/\/+$/, "");
@@ -43,6 +50,31 @@ async function requestJson<T>(path: string, payload: Record<string, unknown>): P
 
   const data = (await response.json()) as T;
   return data;
+}
+
+function formatDateForDisplay(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function buildDefaultTips(city: string, theme: string, distanceKm: number) {
+  const location = city.trim() ? city : "la ville";
+  const themeLower = theme.trim() ? theme.toLowerCase() : "l'expérience";
+
+  return [
+    `Réserve les lieux incontournables de ${location} au moins 24h à l'avance si possible.`,
+    `Prévoyez un budget flexible pour ${themeLower} — ajoute un stop bonus si le temps le permet.`,
+    `Distance prévue : ${distanceKm.toFixed(1)} km. Pense à des alternatives en cas de pluie ou de fermeture.`,
+  ];
 }
 
 export async function POST(request: Request) {
@@ -66,6 +98,11 @@ export async function POST(request: Request) {
       throw new Error("Aucun lieu trouvé pour cette combinaison ville/thème.");
     }
 
+    const warnings: string[] = [];
+    if (places.warning) {
+      warnings.push(places.warning);
+    }
+
     const selectedPlaces = places.results.slice(0, 8);
     const points = selectedPlaces.map((place) => ({ id: place.id, lat: place.lat, lon: place.lon }));
 
@@ -86,8 +123,16 @@ export async function POST(request: Request) {
       format: "kml",
     });
 
+    const dayLabel = formatDateForDisplay(day);
     const pdf = await requestJson<PdfBuildResponse>("/pdf/build", {
       title: `CityBites — ${city}`,
+      subtitle: `${theme} · ${dayLabel}`,
+      city,
+      theme,
+      summary: `Une journée ${theme.toLowerCase()} à ${city}`,
+      distanceKm: route.distanceKm,
+      tips: buildDefaultTips(city, theme, route.distanceKm),
+      highlights: orderedStops.slice(0, 3).map((stop) => stop.name),
       days: [
         {
           date: day,
@@ -100,29 +145,48 @@ export async function POST(request: Request) {
       ],
     });
 
+    if (pdf.warning) {
+      warnings.push(pdf.warning);
+    }
+
+    const assets = [
+      {
+        filename: geojson.filename,
+        mimeType: geojson.mimeType ?? "application/geo+json",
+        content: geojson.content,
+        encoding: "utf-8" as const,
+      },
+      {
+        filename: kml.filename,
+        mimeType: kml.mimeType ?? "application/vnd.google-earth.kml+xml",
+        content: kml.content,
+        encoding: "utf-8" as const,
+      },
+      {
+        filename: pdf.filename,
+        mimeType: pdf.mimeType ?? (pdf.format === "pdf" ? "application/pdf" : "text/html"),
+        content: pdf.content,
+        encoding: pdf.encoding ?? (pdf.format === "pdf" ? "base64" : "utf-8"),
+      },
+    ];
+
+    if (pdf.htmlFallback && pdf.format === "pdf") {
+      assets.push({
+        filename: "guide.html",
+        mimeType: "text/html",
+        content: pdf.htmlFallback,
+        encoding: "utf-8",
+      });
+    }
+
     return NextResponse.json({
-      summary: `Itinéraire ${theme.toLowerCase()} à ${city} pour le ${day}.`,
+      summary: `Itinéraire ${theme.toLowerCase()} à ${city} pour le ${dayLabel}.`,
       itinerary: {
         totalDistanceKm: route.distanceKm,
         stops: orderedStops,
       },
-      assets: [
-        {
-          filename: geojson.filename,
-          mimeType: "application/geo+json",
-          content: geojson.content,
-        },
-        {
-          filename: kml.filename,
-          mimeType: "application/vnd.google-earth.kml+xml",
-          content: kml.content,
-        },
-        {
-          filename: pdf.filename,
-          mimeType: "text/markdown",
-          content: pdf.content,
-        },
-      ],
+      warnings: warnings.length > 0 ? warnings : undefined,
+      assets,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur serveur";

@@ -8,15 +8,28 @@ type GenerateResponse = {
     totalDistanceKm: number;
     stops: Array<{ id: string; name: string; notes?: string }>;
   };
-  assets: Array<{ filename: string; content: string; mimeType?: string }>;
+  warnings?: string[];
+  assets: Array<{ filename: string; content: string; mimeType?: string; encoding?: "base64" | "utf-8" }>;
 };
+
+function base64ToUint8Array(base64: string) {
+  const binary = atob(base64);
+  const length = binary.length;
+  const bytes = new Uint8Array(length);
+  for (let index = 0; index < length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
 
 const initialForm = { city: "", theme: "", day: "" };
 
 function DownloadButton({ asset }: { asset: GenerateResponse["assets"][number] }) {
   const handleClick = () => {
-    const blob = new Blob([asset.content], {
-      type: asset.mimeType ?? "text/plain;charset=utf-8",
+    const encoding = asset.encoding ?? "utf-8";
+    const payload = encoding === "base64" ? base64ToUint8Array(asset.content) : asset.content;
+    const blob = new Blob([payload], {
+      type: asset.mimeType ?? (encoding === "base64" ? "application/octet-stream" : "text/plain;charset=utf-8"),
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -112,6 +125,16 @@ export default function HomePage() {
         )}
         {result && (
           <section style={{ marginTop: 24, display: "grid", gap: 16 }}>
+            {result.warnings?.length ? (
+              <div style={{ background: "#fff6d6", border: "1px solid #f5d17a", borderRadius: 12, padding: 12 }}>
+                <strong>Remarques :</strong>
+                <ul>
+                  {result.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <div>
               <h2>Résumé</h2>
               <p>{result.summary}</p>
