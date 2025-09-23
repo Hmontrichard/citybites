@@ -3,6 +3,7 @@
 ## Project Structure & Module Organization
 - `apps/frontend/` — Next.js client (`src/app/page.tsx` + `app/api/generate/route.ts` qui proxy vers l’agent). Assets sous `public/`. ESLint guidé par `eslint.config.mjs`.
 - `apps/agent/` — Service Express (`src/server.ts`) qui orchestre le serveur MCP via STDIO (`src/mcpClient.ts`, `src/generator.ts`). TypeScript build → `dist/`.
+- `apps/agent/Dockerfile` — image Fly prête à l’emploi (embarque l’agent + le serveur MCP).
 - `apps/mcp-citybites/` —
   - `src/server.ts` : endpoints REST historiques (`/places/search`, etc.).
   - `src/mcp-server.ts` : serveur MCP basé sur `@modelcontextprotocol/sdk`.

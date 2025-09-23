@@ -69,6 +69,27 @@ CityBites génère un mini-guide gourmand à partir d’une ville, d’un thème
 2. **Agent** : peut tourner sur Fly ou Vercel. Fournir les variables `MCP_PREFIX`/`MCP_ENTRY` si le code MCP se trouve ailleurs, ou pointer vers un MCP HTTP si tu souhaites éviter STDIO en production.
 3. **Frontend** : Vercel (nécessite `AGENT_SERVICE_URL` renseigné). Les téléchargements GeoJSON/KML/PDF reposent sur les payloads retournés par l’agent.
 
+### Fly (agent)
+
+Un `Dockerfile` dédié vit dans `apps/agent/Dockerfile`. Il embarque le serveur MCP et l’agent dans la même image.
+
+1. Depuis la racine du repo :
+   ```bash
+   fly launch --no-deploy --name citybites-agent --copy-config --dockerfile apps/agent/Dockerfile
+   ```
+   Ajuste le nom Fly (`citybites-agent`) selon ta disponibilité.
+2. Vérifie/édite `fly.toml` généré (expose le port 4000, `processes = ["app"]`).
+3. Déploie :
+   ```bash
+   fly deploy --dockerfile apps/agent/Dockerfile
+   ```
+4. Ajoute les secrets si besoin (ex : `fly secrets set MCP_PREFIX=/app/apps/mcp-citybites`). Les valeurs par défaut fonctionnent si le build embarque le dossier MCP.
+
+### Vercel (frontend)
+
+- Ajoute `AGENT_SERVICE_URL=https://<ton-app>.fly.dev` dans les variables projet.
+- Redéploie pour propager la configuration.
+
 ## Ressources complémentaires
 
 - README rapide dans `AGENTS.md` pour les guidelines internes.
