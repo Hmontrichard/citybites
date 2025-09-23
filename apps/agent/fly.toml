@@ -1,15 +1,13 @@
-# fly.toml app configuration file generated for mcp-citybites on 2025-09-22T18:04:02+02:00
+# fly.toml app configuration file generated for citybites on 2025-09-23T22:51:27+02:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'mcp-citybites'
-primary_region = 'fra'
-
-[build]
+app = 'citybites'
+primary_region = 'cdg'
 
 [http_service]
-  internal_port = 3001
+  internal_port = 4000
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
