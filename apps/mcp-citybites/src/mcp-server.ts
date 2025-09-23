@@ -99,9 +99,6 @@ const transport = new StdioServerTransport();
 
 server
   .connect(transport)
-  .then(() => {
-    console.log("MCP server ready on stdio");
-  })
   .catch((error: unknown) => {
     console.error("Failed to start MCP server", error);
     process.exit(1);

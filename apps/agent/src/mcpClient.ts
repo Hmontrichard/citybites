@@ -1,5 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
@@ -17,10 +18,7 @@ function resolveDefaultPrefix() {
 }
 
 function defaultCommand() {
-  if (process.platform === "win32") {
-    return process.env.ComSpec ? "npm.cmd" : "npm";
-  }
-  return "npm";
+  return process.execPath;
 }
 
 function parseArgs(raw: string | undefined, fallback: string[]): string[] {
@@ -43,11 +41,33 @@ function parseArgs(raw: string | undefined, fallback: string[]): string[] {
     .filter((part) => part.length > 0);
 }
 
+function resolveDefaultCommand(prefix: string) {
+  const builtEntry = path.resolve(prefix, "dist", "mcp-server.js");
+  const tsEntry = path.resolve(prefix, "src", "mcp-server.ts");
+
+  if (fs.existsSync(builtEntry)) {
+    return {
+      command: process.execPath,
+      args: [builtEntry],
+    };
+  }
+
+  const binName = process.platform === "win32" ? "tsx.cmd" : "tsx";
+  const tsxPath = path.resolve(prefix, "node_modules", ".bin", binName);
+  return {
+    command: tsxPath,
+    args: [tsEntry],
+  };
+}
+
 async function createConnection(): Promise<MCPConnection> {
-  const command = process.env.MCP_COMMAND ?? defaultCommand();
-  const defaultArgs = ["--prefix", process.env.MCP_PREFIX ?? resolveDefaultPrefix(), "run", "mcp"];
+  const prefix = process.env.MCP_PREFIX ?? resolveDefaultPrefix();
+  const defaults = resolveDefaultCommand(prefix);
+
+  const command = process.env.MCP_COMMAND ?? defaults.command;
+  const defaultArgs = process.env.MCP_ENTRY ? [process.env.MCP_ENTRY] : defaults.args;
   const args = parseArgs(process.env.MCP_ARGS, defaultArgs);
-  const cwd = process.env.MCP_CWD ?? path.resolve(resolveDefaultPrefix());
+  const cwd = process.env.MCP_CWD ?? prefix;
 
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
