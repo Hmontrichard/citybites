@@ -107,8 +107,13 @@ function pickFilters(query?: string): ThemeFilter[] {
   return matchingEntry?.filters ?? DEFAULT_FILTERS;
 }
 
+function escapeForOverpass(value: string) {
+  return value.replace(/"/g, "\\\"").replace(/</g, "");
+}
+
 function buildOverpassQuery(city: string, query?: string): string {
   const trimmedCity = city.trim();
+  const escapedCity = escapeForOverpass(trimmedCity);
   const filters = pickFilters(query);
   const overpassFilters = filters
     .map((filter) => {
@@ -122,7 +127,7 @@ function buildOverpassQuery(city: string, query?: string): string {
     .join("\n");
 
   return `[out:json][timeout:25];
-{{geocodeArea:${trimmedCity}}}->.searchArea;
+area["name"="${escapedCity}"]["boundary"="administrative"]["admin_level"~"^(4|5|6|7|8)$"]->.searchArea;
 (
 ${overpassFilters}
 );
