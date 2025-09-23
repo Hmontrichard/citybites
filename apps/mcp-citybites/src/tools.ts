@@ -79,6 +79,18 @@ const CACHE_TTL_MS = Number(process.env.OVERPASS_CACHE_TTL_MS ?? 1000 * 60 * 60 
 type CacheEntry<T> = { value: T; expiresAt: number };
 const overpassCache = new Map<string, CacheEntry<OverpassElement[]>>();
 
+const ENRICH_CACHE_TTL_MS = Number(process.env.PLACE_ENRICH_CACHE_TTL_MS ?? 1000 * 60 * 60 * 6);
+type EnrichCacheValue = {
+  summary: string;
+  highlights: string[];
+  bestTime?: string;
+  localTip?: string;
+};
+const enrichCache = new Map<string, CacheEntry<EnrichCacheValue>>();
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "";
+const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+
 type OverpassElement = {
   id: number;
   type: "node" | "way" | "relation";
@@ -157,6 +169,25 @@ export type PdfBuildOutput = {
   warning?: string;
   htmlFallback?: string;
 };
+
+export const PlaceEnrichInputSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  city: z.string().optional(),
+  theme: z.string().optional(),
+  description: z.string().optional(),
+});
+
+export const PlaceEnrichResultSchema = z.object({
+  summary: z.string(),
+  highlights: z.array(z.string()),
+  bestTime: z.string().optional(),
+  localTip: z.string().optional(),
+  warning: z.string().optional(),
+});
+
+export type PlaceEnrichInput = z.infer<typeof PlaceEnrichInputSchema>;
+export type PlaceEnrichOutput = z.infer<typeof PlaceEnrichResultSchema>;
 
 export const PlacesSearchResultSchema = z.object({
   source: z.string(),
@@ -285,6 +316,19 @@ function fallbackPlaces(city: string) {
     { id: "fallback-2", name: `${formattedCity} Market Hall`, lat: 48.8584, lon: 2.2945 },
     { id: "fallback-3", name: `${formattedCity} Night Bar`, lat: 48.853, lon: 2.3499 },
   ];
+}
+
+function safeParseJsonBlock(text: string) {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch (error) {
+    const match = trimmed.match(/```json\s*([\s\S]+?)```/i);
+    if (match) {
+      return JSON.parse(match[1]);
+    }
+    throw error;
+  }
 }
 
 function escapeHtml(input: string) {
@@ -706,5 +750,89 @@ export async function handlePdfBuild(input: PdfBuildInput): Promise<PdfBuildOutp
       mimeType: "text/html",
       warning: "PDF non disponible, HTML renvoyé.",
     };
+  }
+}
+
+export async function handlePlaceEnrich(input: PlaceEnrichInput): Promise<PlaceEnrichOutput> {
+  const cacheKey = `${input.id}::${normalise(input.theme ?? "_default")}`;
+  const now = Date.now();
+  const cached = enrichCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return PlaceEnrichResultSchema.parse({ ...cached.value });
+  }
+
+  if (!OPENAI_API_KEY) {
+    return PlaceEnrichResultSchema.parse({
+      summary: `Découvre ${input.name}. Enrichissement désactivé (clé API manquante).`,
+      highlights: [],
+      warning: "OPENAI_API_KEY manquante",
+    });
+  }
+
+  const contextDescription = [
+    input.city ? `Ville: ${input.city}` : null,
+    input.theme ? `Thème: ${input.theme}` : null,
+    input.description ? `Notes: ${input.description}` : null,
+  ]
+    .filter(Boolean)
+    .join(" | ") || "Pas d'information supplémentaire";
+
+  const prompt = `Produit un JSON strict décrivant ce lieu selon le schema suivant:\n{
+  "summary": string,
+  "highlights": string[],
+  "bestTime": string (optionnel),
+  "localTip": string (optionnel)
+}\n
+Le ton doit être concret, utile pour un guide food/local. Lieu: ${input.name}. ${contextDescription}.`;
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        temperature: 0.4,
+        messages: [
+          { role: "system", content: "Tu es un expert food & lifestyle, réponds exclusivement en JSON valide." },
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`OpenAI ${response.status} ${text.slice(0, 200)}`);
+    }
+
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+
+    const content = data.choices?.[0]?.message?.content?.trim();
+    if (!content) {
+      throw new Error("Réponse vide du modèle");
+    }
+
+    const raw = safeParseJsonBlock(content);
+    const parsed = PlaceEnrichResultSchema.parse({
+      summary: typeof raw.summary === "string" ? raw.summary : JSON.stringify(raw.summary ?? raw),
+      highlights: Array.isArray(raw.highlights) ? raw.highlights.map((item: unknown) => String(item)) : [],
+      bestTime: typeof raw.bestTime === "string" ? raw.bestTime : raw.best_time,
+      localTip: typeof raw.localTip === "string" ? raw.localTip : raw.local_tip,
+    });
+
+    enrichCache.set(cacheKey, { value: parsed, expiresAt: now + ENRICH_CACHE_TTL_MS });
+    return parsed;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[enrich] échec ${input.id}: ${message}`);
+    return PlaceEnrichResultSchema.parse({
+      summary: `À explorer : ${input.name}. (Enrichissement indisponible)`,
+      highlights: [],
+      warning: message,
+    });
   }
 }

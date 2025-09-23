@@ -7,6 +7,8 @@ import {
   RouteOptimizeResultSchema,
   MapsExportResultSchema,
   PdfBuildResultSchema,
+  PlaceEnrichmentSchema,
+  type PlaceEnrichment,
 } from "./schemas.js";
 
 function formatDateForDisplay(value: string) {
@@ -69,6 +71,13 @@ export type GenerateResult = {
   };
   warnings?: string[];
   assets: Array<{ filename: string; content: string; mimeType?: string; encoding?: "base64" | "utf-8" }>;
+  enrichments?: Array<{
+    id: string;
+    summary: string;
+    highlights: string[];
+    bestTime?: string;
+    localTip?: string;
+  }>;
 };
 
 export async function generateGuide(input: GenerateRequest): Promise<GenerateResult> {
@@ -102,17 +111,77 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
     .filter((place) => orderSet.has(place.id))
     .sort((a, b) => route.order.indexOf(a.id) - route.order.indexOf(b.id));
 
+  const enrichmentTargets = orderedStops.slice(0, Math.min(5, orderedStops.length));
+  const enrichments = new Map<string, PlaceEnrichment>();
+
+  await Promise.all(
+    enrichmentTargets.map(async (stop) => {
+      try {
+        const enrichRaw = CallToolResultSchema.parse(
+          await client.callTool({
+            name: "places.enrich",
+            arguments: {
+              id: stop.id,
+              name: stop.name,
+              city: parsed.city,
+              theme: parsed.theme,
+              description: stop.notes,
+            },
+          }),
+        );
+        const enrichment = extractStructured(enrichRaw, PlaceEnrichmentSchema, "places.enrich");
+        if (enrichment.warning) {
+          warnings.push(`${stop.name} · ${enrichment.warning}`);
+        }
+        enrichments.set(stop.id, enrichment);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        warnings.push(`${stop.name} · enrichissement indisponible (${message})`);
+      }
+    }),
+  );
+
+  const enrichedStops = orderedStops.map((stop) => {
+    const enrichment = enrichments.get(stop.id);
+    return {
+      ...stop,
+      notes: enrichment?.summary ?? stop.notes,
+      enrichment,
+    };
+  });
+
+  const exportableStops = enrichedStops.map(({ enrichment, ...rest }) => rest);
+
   const geojsonRaw = CallToolResultSchema.parse(
-    await client.callTool({ name: "maps.export", arguments: { places: orderedStops, format: "geojson" } }),
+    await client.callTool({ name: "maps.export", arguments: { places: exportableStops, format: "geojson" } }),
   );
   const geojson = extractStructured(geojsonRaw, MapsExportResultSchema, "maps.export");
 
   const kmlRaw = CallToolResultSchema.parse(
-    await client.callTool({ name: "maps.export", arguments: { places: orderedStops, format: "kml" } }),
+    await client.callTool({ name: "maps.export", arguments: { places: exportableStops, format: "kml" } }),
   );
   const kml = extractStructured(kmlRaw, MapsExportResultSchema, "maps.export");
 
   const dayLabel = formatDateForDisplay(parsed.day);
+  const baseTips = buildDefaultTips(parsed.city, parsed.theme, route.distanceKm);
+  const highlightCandidates = enrichedStops.flatMap((stop) => stop.enrichment?.highlights ?? []);
+  const pdfHighlights = highlightCandidates.length
+    ? highlightCandidates.slice(0, 3)
+    : enrichedStops.slice(0, 3).map((stop) => stop.name);
+
+  enrichedStops.forEach((stop) => {
+    const enrichment = stop.enrichment;
+    if (!enrichment) {
+      return;
+    }
+    if (enrichment.bestTime) {
+      baseTips.push(`Moment conseillé pour ${stop.name} : ${enrichment.bestTime}`);
+    }
+    if (enrichment.localTip) {
+      baseTips.push(`Astuce locale (${stop.name}) : ${enrichment.localTip}`);
+    }
+  });
+
   const pdfRaw = CallToolResultSchema.parse(
     await client.callTool({
       name: "pdf.build",
@@ -123,12 +192,12 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
         theme: parsed.theme,
         summary: `Une journée ${parsed.theme.toLowerCase()} à ${parsed.city}`,
         distanceKm: route.distanceKm,
-        tips: buildDefaultTips(parsed.city, parsed.theme, route.distanceKm),
-        highlights: orderedStops.slice(0, 3).map((stop) => stop.name),
+        tips: baseTips,
+        highlights: pdfHighlights.slice(0, 6),
         days: [
           {
             date: parsed.day,
-            blocks: orderedStops.map((stop, index) => ({
+            blocks: enrichedStops.map((stop, index) => ({
               time: `${index + 1}e étape`,
               name: stop.name,
               summary: stop.notes ?? "À découvrir",
@@ -175,14 +244,19 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
     });
   }
 
+  const enrichmentsList = enrichedStops
+    .filter((stop) => stop.enrichment)
+    .map((stop) => ({ id: stop.id, ...(stop.enrichment as PlaceEnrichment) }));
+
   return {
     summary,
     itinerary: {
       totalDistanceKm: route.distanceKm,
-      stops: orderedStops.map((stop) => ({ id: stop.id, name: stop.name, notes: stop.notes })),
+      stops: enrichedStops.map((stop) => ({ id: stop.id, name: stop.name, notes: stop.notes })),
     },
     warnings: warnings.length > 0 ? warnings : undefined,
     assets,
+    enrichments: enrichmentsList.length > 0 ? enrichmentsList : undefined,
   };
 }
 

@@ -35,6 +35,14 @@ export const PdfBuildResultSchema = z.object({
   htmlFallback: z.string().optional(),
 });
 
+export const PlaceEnrichmentSchema = z.object({
+  summary: z.string(),
+  highlights: z.array(z.string()),
+  bestTime: z.string().optional(),
+  localTip: z.string().optional(),
+  warning: z.string().optional(),
+});
+
 export const GenerateRequestSchema = z.object({
   city: z.string().min(1, "Ville obligatoire"),
   theme: z.string().min(1, "Thème obligatoire"),
@@ -47,3 +55,4 @@ export type PlacesSearchResult = z.infer<typeof PlacesSearchResultSchema>;
 export type RouteOptimizeResult = z.infer<typeof RouteOptimizeResultSchema>;
 export type MapsExportResult = z.infer<typeof MapsExportResultSchema>;
 export type PdfBuildResult = z.infer<typeof PdfBuildResultSchema>;
+export type PlaceEnrichment = z.infer<typeof PlaceEnrichmentSchema>;

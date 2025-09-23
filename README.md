@@ -55,6 +55,9 @@ CityBites génère un mini-guide gourmand à partir d’une ville, d’un thème
 | `MCP_COMMAND`, `MCP_ARGS`, `MCP_ENTRY`, `MCP_CWD` | Agent | Permettent de surcharger la façon dont l’agent lance le serveur MCP (ex : exécutable Docker, binaire pré-compilé). |
 | `OVERPASS_ENDPOINTS`, `OVERPASS_USER_AGENT` | MCP | Configuration des requêtes Overpass. |
 | `DISABLE_PDF` | MCP | Si `true`, `pdf.build` renvoie uniquement le HTML (utile pour des environnements sans Chromium). |
+| `OPENAI_API_KEY` | MCP | Clé API utilisée par `places.enrich` pour générer le résumé LLM (fallback mock si absent). |
+| `OPENAI_MODEL` | MCP | Modèle OpenAI employé (défaut `gpt-4o-mini`). |
+| `PLACE_ENRICH_CACHE_TTL_MS` | MCP | Temps de cache des enrichissements (défaut 6 h). |
 
 ## Tests & qualité
 

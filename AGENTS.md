@@ -7,7 +7,7 @@
 - `apps/mcp-citybites/` —
   - `src/server.ts` : endpoints REST historiques (`/places/search`, etc.).
   - `src/mcp-server.ts` : serveur MCP basé sur `@modelcontextprotocol/sdk`.
-  - `src/tools.ts` : logique partagée (Overpass, exports, PDF).
+  - `src/tools.ts` : logique partagée (Overpass, exports, PDF, enrichissement LLM).
 - `scripts/` — utilitaires dont `run-tests.sh` (enchaîne `npm test`/`lint`/`build` pour chaque app).
 - `apps/api/` — placeholder pour de futurs endpoints (non utilisé actuellement).
 
@@ -27,6 +27,11 @@
 - Frontend linting acts as the baseline guard (`next lint`). Add Vitest/Playwright suites under `apps/frontend/__tests__/` as they emerge; name files `*.test.ts(x)`.
 - Services (`apps/mcp-citybites`, `apps/agent`) reposent sur TypeScript + tests unitaires à ajouter sous `tests/` si nécessaire.
 - Always run `./scripts/run-tests.sh` before pushing to ensure repo-wide sanity.
+
+## Environnements & Secrets
+
+- `OPENAI_API_KEY` / `OPENAI_MODEL` (MCP) — nécessaires pour que `places.enrich` produise un résumé LLM ; sinon fallback texte basique + warning.
+- `PLACE_ENRICH_CACHE_TTL_MS` — TTL du cache d’enrichissement (réduit le nombre d’appels LLM).
 
 ## Commit & Pull Request Guidelines
 - Use Conventional Commit prefixes (`feat:`, `fix:`, `refactor:`) as seen in history (`refactor: reorganize frontend and clean repo`). Keep subject lines under ~72 chars.

@@ -2,10 +2,12 @@ import express from "express";
 import {
   MapsExportSchema,
   PdfBuildSchema,
+  PlaceEnrichInputSchema,
   PlacesSearchSchema,
   RouteOptimizeSchema,
   handleMapsExport,
   handlePdfBuild,
+  handlePlaceEnrich,
   handlePlacesSearch,
   handleRoutesOptimize,
 } from "./tools.js";
@@ -55,6 +57,16 @@ app.post("/pdf/build", async (req, res) => {
   }
 
   const result = await handlePdfBuild(parseResult.data);
+  return res.json(result);
+});
+
+app.post("/places/enrich", async (req, res) => {
+  const parseResult = PlaceEnrichInputSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: "Requête invalide", details: parseResult.error.flatten() });
+  }
+
+  const result = await handlePlaceEnrich(parseResult.data);
   return res.json(result);
 });
 

@@ -10,6 +10,7 @@ type GenerateResponse = {
   };
   warnings?: string[];
   assets: Array<{ filename: string; content: string; mimeType?: string; encoding?: "base64" | "utf-8" }>;
+  enrichments?: Array<{ id: string; summary: string; highlights: string[]; bestTime?: string; localTip?: string }>;
 };
 
 function base64ToUint8Array(base64: string) {

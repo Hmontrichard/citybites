@@ -5,16 +5,20 @@ import {
   MapsExportResultSchema,
   PdfBuildSchema,
   PdfBuildResultSchema,
+  PlaceEnrichInputSchema,
+  PlaceEnrichResultSchema,
   PlacesSearchSchema,
   PlacesSearchResultSchema,
   RouteOptimizeSchema,
   RouteOptimizeResultSchema,
   type MapsExportInput,
   type PdfBuildInput,
+  type PlaceEnrichInput,
   type PlacesSearchInput,
   type RouteOptimizeInput,
   handleMapsExport,
   handlePdfBuild,
+  handlePlaceEnrich,
   handlePlacesSearch,
   handleRoutesOptimize,
 } from "./tools.js";
@@ -92,6 +96,21 @@ server.registerTool(
     const result = await handlePdfBuild(input);
     const summary = result.format === "pdf" ? "Guide PDF généré." : "Guide HTML disponible.";
     return buildToolResult(summary, PdfBuildResultSchema.parse(result));
+  },
+);
+
+server.registerTool(
+  "places.enrich",
+  {
+    title: "Enrichissement de lieu",
+    description: "Produit un résumé LLM, highlights et tips pour un lieu.",
+    inputSchema: PlaceEnrichInputSchema.shape,
+    outputSchema: PlaceEnrichResultSchema.shape,
+  },
+  async (input: PlaceEnrichInput) => {
+    const result = await handlePlaceEnrich(input);
+    const summary = result.warning ? `Enrichissement partiel: ${result.warning}` : `Résumé généré pour ${input.name}.`;
+    return buildToolResult(summary, PlaceEnrichResultSchema.parse(result));
   },
 );
 
