@@ -1,7 +1,16 @@
 import express from "express";
 import { z } from "zod";
 
-const OVERPASS_ENDPOINT = process.env.OVERPASS_ENDPOINT ?? "https://overpass-api.de/api/interpreter";
+const DEFAULT_OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.openstreetmap.ru/cgi/interpreter",
+];
+
+const OVERPASS_ENDPOINTS = (process.env.OVERPASS_ENDPOINTS ?? "")
+  .split(",")
+  .map((endpoint) => endpoint.trim())
+  .filter((endpoint) => endpoint.length > 0);
 
 type ThemeFilter = { key: string; value: string };
 
@@ -64,6 +73,18 @@ const DEFAULT_FILTERS: ThemeFilter[] = [
   { key: "amenity", value: "bar" },
 ];
 
+const OVERPASS_USER_AGENT =
+  process.env.OVERPASS_USER_AGENT ?? "CityBitesMCP/0.1 (+https://citybites.ai/contact)";
+
+type OverpassElement = {
+  id: number;
+  type: "node" | "way" | "relation";
+  lat?: number;
+  lon?: number;
+  center?: { lat: number; lon: number };
+  tags?: Record<string, string>;
+};
+
 function normalise(text: string) {
   return text
     .toLocaleLowerCase("fr-FR")
@@ -108,6 +129,47 @@ out center 25;
 `;
 }
 
+async function executeOverpass(query: string) {
+  const endpointsToTry = OVERPASS_ENDPOINTS.length > 0 ? OVERPASS_ENDPOINTS : DEFAULT_OVERPASS_ENDPOINTS;
+  const errors: string[] = [];
+
+  for (const endpoint of endpointsToTry) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": OVERPASS_USER_AGENT,
+        },
+        body: new URLSearchParams({ data: query }).toString(),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        errors.push(`${endpoint} → ${response.status} ${text.slice(0, 400)}`);
+        continue;
+      }
+
+      const payload = (await response.json()) as { elements?: OverpassElement[] };
+      return payload.elements ?? [];
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`${endpoint} → ${message}`);
+    }
+  }
+
+  throw new Error(errors.join(" | "));
+}
+
+function fallbackPlaces(city: string) {
+  const formattedCity = city.trim() || "Ville";
+  return [
+    { id: "fallback-1", name: `${formattedCity} Coffee Lab`, lat: 48.8566, lon: 2.3522 },
+    { id: "fallback-2", name: `${formattedCity} Market Hall`, lat: 48.8584, lon: 2.2945 },
+    { id: "fallback-3", name: `${formattedCity} Night Bar`, lat: 48.853, lon: 2.3499 },
+  ];
+}
+
 const app = express();
 app.use(express.json());
 
@@ -149,33 +211,10 @@ app.post("/places/search", async (req, res) => {
     return res.status(400).json({ error: "Ville manquante" });
   }
 
+  const overpassQuery = buildOverpassQuery(city, query);
+
   try {
-    const overpassQuery = buildOverpassQuery(city, query);
-    const response = await fetch(OVERPASS_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": "citybites-mcp/0.1 (+https://citybites.ai)",
-      },
-      body: new URLSearchParams({ data: overpassQuery }).toString(),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(502).json({ error: "Overpass indisponible", details: text.slice(0, 500) });
-    }
-
-    type OverpassElement = {
-      id: number;
-      type: "node" | "way" | "relation";
-      lat?: number;
-      lon?: number;
-      center?: { lat: number; lon: number };
-      tags?: Record<string, string>;
-    };
-
-    const payload = (await response.json()) as { elements?: OverpassElement[] };
-    const elements = payload.elements ?? [];
+    const elements = await executeOverpass(overpassQuery);
 
     const results = elements
       .map((element): { id: string; name: string; lat: number; lon: number; notes?: string } | undefined => {
@@ -218,7 +257,12 @@ app.post("/places/search", async (req, res) => {
     return res.json({ source: "overpass", results });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur Overpass";
-    return res.status(502).json({ error: message });
+    console.warn(`[overpass] fallback triggered: ${message}`);
+    return res.json({
+      source: "fallback",
+      warning: "Overpass indisponible, données fictives retournées.",
+      results: fallbackPlaces(city),
+    });
   }
 });
 
