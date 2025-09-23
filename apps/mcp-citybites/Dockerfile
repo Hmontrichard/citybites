@@ -11,6 +11,7 @@ WORKDIR /app
 
 # Set production environment
 ENV NODE_ENV="production"
+ENV PLAYWRIGHT_BROWSERS_PATH="/ms-playwright"
 
 
 # Throw-away build stage to reduce size of final image
@@ -49,7 +50,7 @@ COPY scripts ./scripts
 RUN npm ci --include=dev
 
 # Install Playwright browsers and system dependencies
-RUN npx playwright install --with-deps
+RUN npx playwright install chromium
 
 # Copy application code
 COPY . .
@@ -87,6 +88,9 @@ RUN apt-get update -qq && \
     libxcb1 \
     libxext6 && \
     rm -rf /var/lib/apt/lists/*
+
+# Copy Playwright browsers cache
+COPY --from=build /ms-playwright /ms-playwright
 
 # Copy built application
 COPY --from=build /app /app
