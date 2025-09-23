@@ -26,7 +26,7 @@ type PdfBuildResponse = {
   content: string;
 };
 
-const SERVICE_URL = process.env.MCP_SERVICE_URL ?? "http://localhost:3001";
+const SERVICE_URL = (process.env.MCP_SERVICE_URL ?? "http://localhost:3001").replace(/\/+$/, "");
 
 async function requestJson<T>(path: string, payload: Record<string, unknown>): Promise<T> {
   const response = await fetch(`${SERVICE_URL}${path}`, {
