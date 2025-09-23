@@ -88,21 +88,19 @@ function pickFilters(query?: string): ThemeFilter[] {
 function buildOverpassQuery(city: string, query?: string): string {
   const trimmedCity = city.trim();
   const filters = pickFilters(query);
-  const searchArea = `{{geocodeArea:${trimmedCity}}}`;
-
   const overpassFilters = filters
     .map((filter) => {
       const selector = `["${filter.key}"="${filter.value}"]`;
       return [
-        `  node(area.searchArea)${selector};`,
-        `  way(area.searchArea)${selector};`,
-        `  relation(area.searchArea)${selector};`,
+        `  node${selector}(area.searchArea);`,
+        `  way${selector}(area.searchArea);`,
+        `  relation${selector}(area.searchArea);`,
       ].join("\n");
     })
     .join("\n");
 
   return `[out:json][timeout:25];
-area(${searchArea})->.searchArea;
+{{geocodeArea:${trimmedCity}}}->.searchArea;
 (
 ${overpassFilters}
 );
