@@ -24,3 +24,8 @@
 - Remplacer les mocks par l’implémentation MCP réelle (Overpass, optimisation, génération PDF).
 - Ajouter des tests et un lint pass une fois la config ESLint Next initialisée.
 - Préparer le déploiement (Render/Fly pour le service, Vercel pour le front).
+
+## Tests rapides
+
+- `./scripts/run-tests.sh` — exécute `npm test` dans chaque app (`apps/*`) et retombe sur `npm run lint` ou `npm run build` si nécessaire.
+- Ajoute les commandes dont tu as besoin au script `test` de chaque `package.json` pour qu'elles soient prises en compte automatiquement.
