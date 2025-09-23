@@ -18,11 +18,37 @@ FROM base AS build
 
 # Install packages needed to build node modules
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
+    apt-get install --no-install-recommends -y \
+    build-essential \
+    node-gyp \
+    pkg-config \
+    python-is-python3 \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    libatspi2.0-0 \
+    libxshmfence1 \
+    libxfixes3 \
+    libx11-xcb1 \
+    libx11-6 \
+    libxcb1 \
+    libxext6
 
 # Install node modules
 COPY package-lock.json package.json ./
 RUN npm ci --include=dev
+
+# Install Playwright browsers and system dependencies
+RUN npx playwright install --with-deps
 
 # Copy application code
 COPY . .
@@ -36,6 +62,30 @@ RUN npm prune --omit=dev
 
 # Final stage for app image
 FROM base
+
+# Runtime dependencies for Chromium
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    libatspi2.0-0 \
+    libxshmfence1 \
+    libxfixes3 \
+    libx11-xcb1 \
+    libx11-6 \
+    libxcb1 \
+    libxext6 && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy built application
 COPY --from=build /app /app
