@@ -1,5 +1,17 @@
 import type { Metadata } from "next";
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
 import "./globals.css";
+
+const geistSans = GeistSans({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+});
+
+const geistMono = GeistMono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
+});
 
 export const metadata: Metadata = {
   title: "CityBites.AI — Générateur d'itinéraires",
@@ -13,7 +25,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body>{children}</body>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        {children}
+      </body>
     </html>
   );
 }
