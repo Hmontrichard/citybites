@@ -1,16 +1,21 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `apps/frontend/` — Next.js client; key entry is `src/app/page.tsx`. Assets live under `public/`. ESLint config uses `eslint.config.mjs` with a generated `.eslintrc.json` shim.
-- `apps/mcp-citybites/` — Express mock service served from `src/server.ts`. TypeScript build outputs to `dist/` when compiled.
-- `apps/api/` — Placeholder for future API routes; current demo lives in `generate/route.ts`.
-- `scripts/` — Utility scripts; `run-tests.sh` orchestrates package-level test commands.
+- `apps/frontend/` — Next.js client (`src/app/page.tsx` + `app/api/generate/route.ts` qui proxy vers l’agent). Assets sous `public/`. ESLint guidé par `eslint.config.mjs`.
+- `apps/agent/` — Service Express (`src/server.ts`) qui orchestre le serveur MCP via STDIO (`src/mcpClient.ts`, `src/generator.ts`). TypeScript build → `dist/`.
+- `apps/mcp-citybites/` —
+  - `src/server.ts` : endpoints REST historiques (`/places/search`, etc.).
+  - `src/mcp-server.ts` : serveur MCP basé sur `@modelcontextprotocol/sdk`.
+  - `src/tools.ts` : logique partagée (Overpass, exports, PDF).
+- `scripts/` — utilitaires dont `run-tests.sh` (enchaîne `npm test`/`lint`/`build` pour chaque app).
+- `apps/api/` — placeholder pour de futurs endpoints (non utilisé actuellement).
 
 ## Build, Test, and Development Commands
 - `npm --prefix apps/frontend run dev` — Start the Next.js dev server on port 3000.
-- `npm --prefix apps/mcp-citybites run dev` — Launch the mock MCP Express server on port 3001.
+- `npm --prefix apps/agent run dev` — Lance l’agent (port 4000) et démarre le serveur MCP via STDIO.
+- `npm --prefix apps/mcp-citybites run dev` — Lance le serveur REST historique (port 3001) si besoin pour debug.
 - `./scripts/run-tests.sh` — Run each app’s `npm test`, falling back to `lint` or `build` when tests are absent.
-- `npm --prefix apps/frontend run build` / `npm --prefix apps/mcp-citybites run build` — Produce production bundles for deployment.
+- `npm --prefix apps/frontend run build` / `npm --prefix apps/mcp-citybites run build` / `npm --prefix apps/agent run build` — Production bundles pour chaque app.
 
 ## Coding Style & Naming Conventions
 - TypeScript and JSX throughout; prefer functional React components.
@@ -19,7 +24,7 @@
 
 ## Testing Guidelines
 - Frontend linting acts as the baseline guard (`next lint`). Add Vitest/Playwright suites under `apps/frontend/__tests__/` as they emerge; name files `*.test.ts(x)`.
-- The mock service relies on TypeScript checks; add runtime tests with your preferred harness under `apps/mcp-citybites/tests/`, mirroring source structure.
+- Services (`apps/mcp-citybites`, `apps/agent`) reposent sur TypeScript + tests unitaires à ajouter sous `tests/` si nécessaire.
 - Always run `./scripts/run-tests.sh` before pushing to ensure repo-wide sanity.
 
 ## Commit & Pull Request Guidelines

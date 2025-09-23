@@ -1,31 +1,76 @@
-# citybites
+# CityBites
 
-## Démarrer les services du MVP
+CityBites génère un mini-guide gourmand à partir d’une ville, d’un thème et d’une date. La stack se compose :
 
-1. **Mock MCP service** (`apps/mcp-citybites`)
-   - `npm install`
-   - `npm run dev`
-   - Expose les endpoints HTTP `/places/search`, `/routes/optimize`, `/maps/export`, `/pdf/build`.
+- d’un **serveur MCP** (`apps/mcp-citybites`) qui expose les tools `places.search`, `routes.optimize`, `maps.export`, `pdf.build` ;
+- d’un **agent orchestrateur** (`apps/agent`) qui dialogue avec ce serveur via STDIO et assemble les résultats ;
+- d’un **frontend Next.js** (`apps/frontend`) qui expose le formulaire utilisateur et consomme l’API de l’agent.
 
-2. **Frontend Next.js** (`apps/frontend`)
-   - Crée un fichier `.env.local` avec `MCP_SERVICE_URL=http://localhost:3001` si tu utilises le port par défaut.
-   - `npm install`
-   - `npm run dev`
-   - Formulaire accessible sur `http://localhost:3000`.
+## Démarrer en local
 
-## Structure actuelle
+1. **Installer les dépendances**
+   ```bash
+   npm --prefix apps/mcp-citybites install
+   npm --prefix apps/agent install
+   npm --prefix apps/frontend install
+   ```
 
-- `apps/frontend/src/app/page.tsx` — formulaire MVP + affichage des résultats et téléchargements.
-- `apps/frontend/src/app/api/generate/route.ts` — appelle la stack mock pour assembler itinéraire + exports.
-- `apps/mcp-citybites/src/server.ts` — implémentation Express mock des futures tools MCP (GeoJSON/KML/guide).
+2. **Compiler le serveur MCP (facultatif mais recommandé)**
+   ```bash
+   npm --prefix apps/mcp-citybites run build
+   ```
 
-## Étapes suivantes
+3. **Lancer l’agent** (démarre automatiquement le serveur MCP via STDIO)
+   ```bash
+   npm --prefix apps/agent run dev
+   ```
+   L’agent écoute sur `http://localhost:4000`. Il démarre `apps/mcp-citybites/dist/mcp-server.js` s’il existe, sinon `tsx src/mcp-server.ts`.
 
-- Remplacer les mocks par l’implémentation MCP réelle (Overpass, optimisation, génération PDF).
-- Ajouter des tests et un lint pass une fois la config ESLint Next initialisée.
-- Préparer le déploiement (Render/Fly pour le service, Vercel pour le front).
+4. **Lancer le frontend**
+   - Crée `apps/frontend/.env.local` avec `AGENT_SERVICE_URL=http://localhost:4000`.
+   - Démarre Next.js :
+     ```bash
+     npm --prefix apps/frontend run dev
+     ```
+   - Le formulaire est accessible sur `http://localhost:3000`.
 
-## Tests rapides
+> Besoin uniquement de l’API REST mock ? Tu peux toujours lancer `npm --prefix apps/mcp-citybites run dev` et pointer le front sur `MCP_SERVICE_URL`, mais la voie officielle passe désormais par l’agent.
 
-- `./scripts/run-tests.sh` — exécute `npm test` dans chaque app (`apps/*`) et retombe sur `npm run lint` ou `npm run build` si nécessaire.
-- Ajoute les commandes dont tu as besoin au script `test` de chaque `package.json` pour qu'elles soient prises en compte automatiquement.
+## Structure
+
+- `apps/frontend/` : UI + route `app/api/generate/route.ts` (proxy vers l’agent).
+- `apps/agent/` : serveur Express (`src/server.ts`) + orchestrateur MCP (`src/generator.ts`).
+- `apps/mcp-citybites/` :
+  - `src/tools.ts` mutualise Overpass, exports et PDF.
+  - `src/server.ts` garde les endpoints HTTP historiques.
+  - `src/mcp-server.ts` expose les tools via le protocole MCP.
+- `scripts/run-tests.sh` : lance `npm test | lint | build` dans chaque app.
+
+## Variables d’environnement
+
+| Variable | Scope | Description |
+| --- | --- | --- |
+| `AGENT_SERVICE_URL` | Frontend | URL publique de l’agent (par défaut `http://localhost:4000`). |
+| `MCP_PREFIX` | Agent | Chemin vers `apps/mcp-citybites` (déduit automatiquement si non fourni). |
+| `MCP_COMMAND`, `MCP_ARGS`, `MCP_ENTRY`, `MCP_CWD` | Agent | Permettent de surcharger la façon dont l’agent lance le serveur MCP (ex : exécutable Docker, binaire pré-compilé). |
+| `OVERPASS_ENDPOINTS`, `OVERPASS_USER_AGENT` | MCP | Configuration des requêtes Overpass. |
+| `DISABLE_PDF` | MCP | Si `true`, `pdf.build` renvoie uniquement le HTML (utile pour des environnements sans Chromium). |
+
+## Tests & qualité
+
+- `npm --prefix apps/mcp-citybites run build` valide la compilation TypeScript (MCP + tools).
+- `npm --prefix apps/agent run build` vérifie l’agent.
+- `npm --prefix apps/frontend run lint` / `run build` couvre le front.
+- `./scripts/run-tests.sh` orchestre l’ensemble des apps.
+
+## Déploiement (aperçu)
+
+1. **MCP (Fly.io recommandé)** : l’image Docker installe Chromium (Playwright) et expose `dist/mcp-server.js`.
+2. **Agent** : peut tourner sur Fly ou Vercel. Fournir les variables `MCP_PREFIX`/`MCP_ENTRY` si le code MCP se trouve ailleurs, ou pointer vers un MCP HTTP si tu souhaites éviter STDIO en production.
+3. **Frontend** : Vercel (nécessite `AGENT_SERVICE_URL` renseigné). Les téléchargements GeoJSON/KML/PDF reposent sur les payloads retournés par l’agent.
+
+## Ressources complémentaires
+
+- README rapide dans `AGENTS.md` pour les guidelines internes.
+- Prompts / roadmap détaillée dans le brief CityBites.
+- `apps/mcp-citybites/src/tools.ts` contient les points d’entrée à enrichir (`places.enrich`, cache Overpass, exports CSV, etc.).
