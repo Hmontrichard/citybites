@@ -16,8 +16,8 @@ COPY apps/agent/package.json apps/agent/package.json
 COPY apps/agent/package-lock.json apps/agent/package-lock.json
 
 # Install dependencies (include dev deps for build)
-RUN npm --prefix apps/mcp-citybites install
-RUN npm --prefix apps/agent install
+RUN npm --prefix apps/mcp-citybites install --include=dev
+RUN npm --prefix apps/agent install --include=dev
 
 # Copy full repo
 COPY . .

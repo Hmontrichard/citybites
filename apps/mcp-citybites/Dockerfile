@@ -44,17 +44,16 @@ RUN apt-get update -qq && \
     libxcb1 \
     libxext6
 
-# Install node modules (copy manifests from context root "apps")
-COPY mcp-citybites/package.json ./package.json
-COPY mcp-citybites/package-lock.json ./package-lock.json
-COPY mcp-citybites/scripts ./scripts
-RUN npm ci --include=dev && npm install --global typescript
+# Install node modules
+COPY package.json package-lock.json ./
+COPY scripts ./scripts
+RUN npm ci --include=dev
 
 # Install Playwright browsers and system dependencies
 RUN npx playwright install chromium
 
 # Copy application source
-COPY mcp-citybites/ .
+COPY . .
 
 # Build application
 RUN npm run build
