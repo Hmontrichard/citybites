@@ -9,6 +9,9 @@ apps/mcp-citybites/dist/
 # Env files
 .env*
 
+# Vercel
+.vercel/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

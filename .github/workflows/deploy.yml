@@ -71,7 +71,7 @@ jobs:
   deploy-frontend:
     needs: deploy-fly
     runs-on: ubuntu-latest
-    if: ${{ false }}  # Temporairement désactivé
+# Vercel deployment enabled with correct ORG_ID and PROJECT_ID
 
     steps:
       - name: Checkout repository
