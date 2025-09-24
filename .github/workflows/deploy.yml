@@ -41,7 +41,7 @@ jobs:
   deploy-fly:
     needs: test
     runs-on: ubuntu-latest
-    if: ${{ secrets.FLY_API_TOKEN != '' }}
+# Fly.io deployment will proceed with token
     environment:
       name: production
 
@@ -63,7 +63,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   deploy-frontend:
-    needs: test
+    needs: deploy-fly
     runs-on: ubuntu-latest
 
     steps:

@@ -1,6 +1,6 @@
 # CityBites
 
-🚀 **Statut**: Repository public - Déploiement Vercel opérationnel
+🚀 **Statut**: Repository public - Déploiement Vercel + Fly.io opérationnel (Test: 17h17)
 
 CityBites génère un mini-guide gourmand à partir d'une ville, d'un thème et d'une date. La stack se compose :
 
