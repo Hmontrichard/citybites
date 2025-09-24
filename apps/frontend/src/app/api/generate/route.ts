@@ -6,16 +6,18 @@ type GeneratePayload = {
   day?: unknown;
 };
 
-const rawAgentUrl =
-  process.env.AGENT_SERVICE_URL ?? (process.env.NODE_ENV === "development" ? "http://localhost:4000" : undefined);
+function getAgentUrl() {
+  const rawAgentUrl =
+    process.env.AGENT_SERVICE_URL ?? (process.env.NODE_ENV === "development" ? "http://localhost:4000" : undefined);
 
-if (!rawAgentUrl) {
-  throw new Error(
-    "AGENT_SERVICE_URL is not configured. Set it to the public URL of the agent service before deploying.",
-  );
+  if (!rawAgentUrl) {
+    throw new Error(
+      "AGENT_SERVICE_URL is not configured. Set it to the public URL of the agent service before deploying.",
+    );
+  }
+
+  return rawAgentUrl.replace(/\/+$/, "");
 }
-
-const AGENT_URL = rawAgentUrl.replace(/\/+$/, "");
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as GeneratePayload;
@@ -31,6 +33,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    const AGENT_URL = getAgentUrl();
     const response = await fetch(`${AGENT_URL}/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
