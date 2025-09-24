@@ -44,16 +44,17 @@ RUN apt-get update -qq && \
     libxcb1 \
     libxext6
 
-# Install node modules
-COPY package-lock.json package.json ./
-COPY scripts ./scripts
+# Install node modules (copy manifests from context root "apps")
+COPY mcp-citybites/package.json ./package.json
+COPY mcp-citybites/package-lock.json ./package-lock.json
+COPY mcp-citybites/scripts ./scripts
 RUN npm ci --include=dev
 
 # Install Playwright browsers and system dependencies
 RUN npx playwright install chromium
 
-# Copy application code
-COPY . .
+# Copy application source
+COPY mcp-citybites/ .
 
 # Build application
 RUN npm run build
@@ -96,5 +97,5 @@ COPY --from=build /ms-playwright /ms-playwright
 COPY --from=build /app /app
 
 # Start the server by default, this can be overwritten at runtime
-EXPOSE 3000
+EXPOSE 3001
 CMD [ "npm", "run", "start" ]

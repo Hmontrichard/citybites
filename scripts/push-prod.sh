@@ -23,4 +23,7 @@ git push origin main
 echo "⬢ Déploiement Fly (agent)"
 fly deploy --config apps/agent/fly.toml --dockerfile apps/agent/Dockerfile "$@"
 
+echo "⬢ Déploiement Fly (MCP)"
+fly deploy --config apps/mcp-citybites/fly.toml "$@"
+
 echo "✅ Déploiement terminé. Pense à redeployer Vercel si nécessaire (AGENT_SERVICE_URL mis à jour)."

@@ -2,8 +2,8 @@ app = "mcp-citybites"
 primary_region = "fra"
 
 [build]
-  dockerfile = "./Dockerfile"
-  context = "."
+  dockerfile = "mcp-citybites/Dockerfile"
+  context = ".."
 
 [env]
   NODE_ENV = "production"

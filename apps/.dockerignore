@@ -1,0 +1,7 @@
+# Global dockerignore to keep Fly builds lean
+.git
+**/node_modules
+**/dist
+.env
+*.log
+.DS_Store
