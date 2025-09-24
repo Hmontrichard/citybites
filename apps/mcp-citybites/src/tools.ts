@@ -12,6 +12,9 @@ const OVERPASS_ENDPOINTS = (process.env.OVERPASS_ENDPOINTS ?? "")
   .map((endpoint) => endpoint.trim())
   .filter((endpoint) => endpoint.length > 0);
 
+const NOMINATIM_URL = process.env.NOMINATIM_URL ?? "https://nominatim.openstreetmap.org/search";
+const NOMINATIM_CACHE_TTL_MS = Number(process.env.NOMINATIM_CACHE_TTL_MS ?? 1000 * 60 * 60 * 24);
+
 type ThemeFilter = { key: string; value: string };
 
 const THEME_FILTERS: Array<{ matches: string[]; filters: ThemeFilter[] }> = [
@@ -90,6 +93,20 @@ const enrichCache = new Map<string, CacheEntry<EnrichCacheValue>>();
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+
+type GeocodeResult = {
+  label: string;
+  lat: number;
+  lon: number;
+  boundingBox: {
+    south: number;
+    north: number;
+    west: number;
+    east: number;
+  };
+};
+
+const geocodeCache = new Map<string, CacheEntry<GeocodeResult>>();
 
 type OverpassElement = {
   id: number;
@@ -237,31 +254,86 @@ function pickFilters(query?: string): ThemeFilter[] {
   return matchingEntry?.filters ?? DEFAULT_FILTERS;
 }
 
+async function geocodeCity(city: string): Promise<GeocodeResult> {
+  const trimmed = city.trim();
+  if (!trimmed) {
+    throw new Error("Ville introuvable");
+  }
+
+  const cacheKey = normalise(trimmed);
+  const now = Date.now();
+  const cached = geocodeCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
+  }
+
+  const url = new URL(NOMINATIM_URL);
+  url.searchParams.set("q", trimmed);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("limit", "1");
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      "User-Agent": OVERPASS_USER_AGENT,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Nominatim ${response.status}`);
+  }
+
+  const data = (await response.json()) as Array<{
+    display_name?: string;
+    lat?: string;
+    lon?: string;
+    boundingbox?: [string, string, string, string];
+  }>;
+
+  const entry = data[0];
+  if (!entry || !entry.lat || !entry.lon || !entry.boundingbox) {
+    throw new Error(`Ville introuvable: ${trimmed}`);
+  }
+
+  const [southRaw, northRaw, westRaw, eastRaw] = entry.boundingbox;
+  const result: GeocodeResult = {
+    label: entry.display_name ?? trimmed,
+    lat: Number.parseFloat(entry.lat),
+    lon: Number.parseFloat(entry.lon),
+    boundingBox: {
+      south: Number.parseFloat(southRaw),
+      north: Number.parseFloat(northRaw),
+      west: Number.parseFloat(westRaw),
+      east: Number.parseFloat(eastRaw),
+    },
+  };
+
+  geocodeCache.set(cacheKey, { value: result, expiresAt: now + NOMINATIM_CACHE_TTL_MS });
+  return result;
+}
+
 function escapeForOverpass(value: string) {
   return value.replace(/"/g, "\\\"").replace(/</g, "");
 }
 
-function buildOverpassQuery(city: string, query?: string): string {
-  const trimmedCity = city.trim();
-  const escapedCity = escapeForOverpass(trimmedCity);
-  const filters = pickFilters(query);
+function buildOverpassQuery(geocode: GeocodeResult, filters: ThemeFilter[]): string {
+  const { south, north, west, east } = geocode.boundingBox;
+  const bbox = `(${south},${west},${north},${east})`;
   const overpassFilters = filters
     .map((filter) => {
-      const selector = `["${filter.key}"="${filter.value}"]`;
+      const selector = `["${escapeForOverpass(filter.key)}"="${escapeForOverpass(filter.value)}"]`;
       return [
-        `  node${selector}(area.searchArea);`,
-        `  way${selector}(area.searchArea);`,
-        `  relation${selector}(area.searchArea);`,
+        `  node${selector}${bbox};`,
+        `  way${selector}${bbox};`,
+        `  relation${selector}${bbox};`,
       ].join("\n");
     })
     .join("\n");
 
   return `[out:json][timeout:25];
-area["name"="${escapedCity}"]["boundary"="administrative"]["admin_level"~"^(4|5|6|7|8)$"]->.searchArea;
 (
 ${overpassFilters}
 );
-out center 25;
+out center 100;
 `;
 }
 
@@ -309,13 +381,41 @@ async function executeOverpass(query: string, cacheKey: string) {
   throw new Error(errors.join(" | "));
 }
 
-function fallbackPlaces(city: string) {
+function fallbackPlaces(city: string, geocode?: GeocodeResult) {
   const formattedCity = city.trim() || "Ville";
-  return [
-    { id: "fallback-1", name: `${formattedCity} Coffee Lab`, lat: 48.8566, lon: 2.3522 },
-    { id: "fallback-2", name: `${formattedCity} Market Hall`, lat: 48.8584, lon: 2.2945 },
-    { id: "fallback-3", name: `${formattedCity} Night Bar`, lat: 48.853, lon: 2.3499 },
+  const baseLat = geocode?.lat ?? 48.8566;
+  const baseLon = geocode?.lon ?? 2.3522;
+  const offsets = [
+    {
+      id: "fallback-1",
+      name: `${formattedCity} Coffee Crawl`,
+      dLat: 0.004,
+      dLon: 0.002,
+      notes: "Commence la journée avec un espresso signature.",
+    },
+    {
+      id: "fallback-2",
+      name: `${formattedCity} Market Hall`,
+      dLat: -0.003,
+      dLon: 0.003,
+      notes: "Food court local pour déjeuner rapide.",
+    },
+    {
+      id: "fallback-3",
+      name: `${formattedCity} Night Bar`,
+      dLat: 0.002,
+      dLon: -0.003,
+      notes: "Cocktails signature en fin de parcours.",
+    },
   ];
+
+  return offsets.map((spot) => ({
+    id: spot.id,
+    name: spot.name,
+    lat: Number((baseLat + spot.dLat).toFixed(6)),
+    lon: Number((baseLon + spot.dLon).toFixed(6)),
+    notes: spot.notes,
+  }));
 }
 
 function safeParseJsonBlock(text: string) {
@@ -627,8 +727,22 @@ export async function handlePlacesSearch(input: PlacesSearchInput): Promise<Plac
     throw new Error("Ville manquante");
   }
 
-  const overpassQuery = buildOverpassQuery(city, query);
-  const cacheKey = `${normalise(city)}::${query ? normalise(query) : "_default"}`;
+  let geocode: GeocodeResult;
+  try {
+    geocode = await geocodeCity(city);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Ville introuvable";
+    console.warn(`[geocode] ${city} impossible: ${message}`);
+    return {
+      source: "fallback",
+      warning: "Ville introuvable, suggestions génériques proposées.",
+      results: fallbackPlaces(city),
+    };
+  }
+
+  const filters = pickFilters(query);
+  const overpassQuery = buildOverpassQuery(geocode, filters);
+  const cacheKey = `${normalise(city)}::${query ? normalise(query) : "_default"}::${geocode.boundingBox.south.toFixed(3)}::${geocode.boundingBox.east.toFixed(3)}`;
 
   try {
     const elements = await executeOverpass(overpassQuery, cacheKey);
@@ -678,7 +792,7 @@ export async function handlePlacesSearch(input: PlacesSearchInput): Promise<Plac
       return {
         source: "fallback",
         warning: "Aucun lieu trouvé pour ce thème, suggestions génériques proposées.",
-        results: fallbackPlaces(city),
+        results: fallbackPlaces(city, geocode),
       };
     }
 
@@ -689,7 +803,7 @@ export async function handlePlacesSearch(input: PlacesSearchInput): Promise<Plac
     return {
       source: "fallback",
       warning: "Overpass indisponible, données fictives retournées.",
-      results: fallbackPlaces(city),
+      results: fallbackPlaces(city, geocode),
     };
   }
 }

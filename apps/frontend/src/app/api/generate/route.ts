@@ -6,7 +6,16 @@ type GeneratePayload = {
   day?: unknown;
 };
 
-const AGENT_URL = (process.env.AGENT_SERVICE_URL ?? "http://localhost:4000").replace(/\/+$/, "");
+const rawAgentUrl =
+  process.env.AGENT_SERVICE_URL ?? (process.env.NODE_ENV === "development" ? "http://localhost:4000" : undefined);
+
+if (!rawAgentUrl) {
+  throw new Error(
+    "AGENT_SERVICE_URL is not configured. Set it to the public URL of the agent service before deploying.",
+  );
+}
+
+const AGENT_URL = rawAgentUrl.replace(/\/+$/, "");
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as GeneratePayload;
