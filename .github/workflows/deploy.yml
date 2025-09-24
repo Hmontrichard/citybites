@@ -1,0 +1,92 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            apps/agent/package-lock.json
+            apps/frontend/package-lock.json
+            apps/mcp-citybites/package-lock.json
+
+      - name: Install dependencies (agent)
+        run: npm ci
+        working-directory: apps/agent
+
+      - name: Install dependencies (legacy MCP)
+        run: npm ci
+        working-directory: apps/mcp-citybites
+
+      - name: Install dependencies (frontend)
+        run: npm ci
+        working-directory: apps/frontend
+
+      - name: Run repository test suite
+        run: ./scripts/run-tests.sh
+
+  deploy-fly:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@v1
+
+      - name: Deploy agent service
+        run: fly deploy --config apps/agent/fly.toml --dockerfile apps/agent/Dockerfile --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Deploy MCP service
+        run: fly deploy --config apps/mcp-citybites/fly.toml --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  deploy-frontend:
+    needs: deploy-fly
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token ${{ secrets.VERCEL_TOKEN }}
+        working-directory: apps/frontend
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy Next.js frontend to Vercel
+        run: vercel deploy --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
+        working-directory: apps/frontend
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
