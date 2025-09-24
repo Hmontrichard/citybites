@@ -671,6 +671,17 @@ export async function handlePlacesSearch(input: PlacesSearchInput): Promise<Plac
       .filter((value): value is { id: string; name: string; lat: number; lon: number; notes?: string } => Boolean(value))
       .slice(0, 30);
 
+    if (results.length === 0) {
+      console.warn(
+        `[overpass] aucun résultat pour city="${city}" query="${query ?? ""}" – fallback utilisé`,
+      );
+      return {
+        source: "fallback",
+        warning: "Aucun lieu trouvé pour ce thème, suggestions génériques proposées.",
+        results: fallbackPlaces(city),
+      };
+    }
+
     return { source: "overpass", results };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur Overpass";
