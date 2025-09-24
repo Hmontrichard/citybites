@@ -71,6 +71,7 @@ jobs:
   deploy-frontend:
     needs: deploy-fly
     runs-on: ubuntu-latest
+    if: ${{ false }}  # Temporairement désactivé
 
     steps:
       - name: Checkout repository
