@@ -48,7 +48,7 @@ RUN apt-get update -qq && \
 COPY mcp-citybites/package.json ./package.json
 COPY mcp-citybites/package-lock.json ./package-lock.json
 COPY mcp-citybites/scripts ./scripts
-RUN npm ci --include=dev
+RUN npm ci --include=dev && npm install --global typescript
 
 # Install Playwright browsers and system dependencies
 RUN npx playwright install chromium
