@@ -88,6 +88,11 @@ Un `Dockerfile` dédié vit dans `apps/agent/Dockerfile`. Il embarque le serveur
    ```
 4. Ajoute les secrets si besoin (ex : `fly secrets set MCP_PREFIX=/app/apps/mcp-citybites`). Les valeurs par défaut fonctionnent si le build embarque le dossier MCP.
 
+### Script d’automatisation
+
+- `./scripts/push-prod.sh` : enchaîne les tests (`./scripts/run-tests.sh`), pousse sur `origin main`, puis lance `fly deploy --config apps/agent/fly.toml --dockerfile apps/agent/Dockerfile`. Les arguments passés au script sont relayés à `fly deploy` (ex. `--remote-only`).
+- Le script vérifie que le worktree est propre ; pense à redéployer Vercel si besoin après mise à jour.
+
 ### Vercel (frontend)
 
 - Ajoute `AGENT_SERVICE_URL=https://<ton-app>.fly.dev` dans les variables projet.
