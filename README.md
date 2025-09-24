@@ -1,6 +1,8 @@
 # CityBites
 
-CityBites génère un mini-guide gourmand à partir d’une ville, d’un thème et d’une date. La stack se compose :
+🚀 **Statut**: Repository public - Déploiement Vercel opérationnel
+
+CityBites génère un mini-guide gourmand à partir d'une ville, d'un thème et d'une date. La stack se compose :
 
 - d’un **serveur MCP** (`apps/mcp-citybites`) qui expose les tools `places.search`, `routes.optimize`, `maps.export`, `pdf.build` ;
 - d’un **agent orchestrateur** (`apps/agent`) qui dialogue avec ce serveur via STDIO et assemble les résultats ;
