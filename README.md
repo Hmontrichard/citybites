@@ -66,6 +66,13 @@ CityBites génère un mini-guide gourmand à partir d’une ville, d’un thème
 - `npm --prefix apps/frontend run lint` / `run build` couvre le front.
 - `./scripts/run-tests.sh` orchestre l’ensemble des apps.
 
+## Intégration continue
+
+- Les workflows vivent dans `.github/workflows/ci.yml` et `.github/workflows/deploy.yml`.
+- Le workflow **CI** s’exécute sur chaque pull request et sur les pushes vers `main` pour lancer `./scripts/run-tests.sh`.
+- Le workflow **Deploy** se déclenche après fusion sur `main` pour redéployer Fly.io (`apps/agent`, `apps/mcp-citybites`) puis Vercel (`apps/frontend`).
+- Pour simuler la CI en local, exécute `./scripts/run-tests.sh` avant de pousser tes changements.
+
 ## Déploiement (aperçu)
 
 1. **MCP (Fly.io recommandé)** : l’image Docker installe Chromium (Playwright) et expose `dist/mcp-server.js`.
