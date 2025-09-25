@@ -20,7 +20,7 @@ export default function TestSimplePage() {
   return (
     <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
       <h1>🧪 Test Simple CityBites</h1>
-      <p>Test uniquement de l'API sans carte</p>
+      <p>Test uniquement de l&apos;API sans carte</p>
       
       <form onSubmit={handleSubmit} style={{ marginBottom: '20px' }}>
         <div style={{ marginBottom: '10px' }}>
@@ -117,7 +117,7 @@ export default function TestSimplePage() {
         <ol>
           <li>Ouvrez la console du navigateur (F12)</li>
           <li>Assurez-vous que votre backend agent tourne sur le port 4000</li>
-          <li>Cliquez sur "Tester l'API"</li>
+          <li>Cliquez sur &quot;Tester l&apos;API&quot;</li>
           <li>Regardez les logs dans la console</li>
         </ol>
       </div>

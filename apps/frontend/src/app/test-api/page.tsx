@@ -166,7 +166,7 @@ export default function TestApiPage() {
         <p>💡 <strong>Instructions:</strong></p>
         <ol>
           <li>Ouvrez la console du navigateur (F12)</li>
-          <li>Cliquez sur "Tester l'API"</li>
+          <li>Cliquez sur &quot;Tester l&apos;API&quot;</li>
           <li>Regardez les logs pour voir la structure des données</li>
           <li>Vérifiez si les lieux ont des coordonnées lat/lon</li>
         </ol>

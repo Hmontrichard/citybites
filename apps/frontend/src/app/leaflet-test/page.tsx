@@ -155,7 +155,7 @@ export default function LeafletTestPage() {
       }}>
         <strong>✅ Carte Leaflet (stable) :</strong>
         <ul style={{ margin: '5px 0 0 20px' }}>
-          <li>✅ Pas d'erreurs de projection</li>
+          <li>✅ Pas d&apos;erreurs de projection</li>
           <li>🗺️ OpenStreetMap (gratuit)</li>
           <li>📍 Géolocalisation automatique</li>
           <li>🎯 Marqueurs colorés par catégorie</li>

@@ -42,7 +42,7 @@ export default function HomePage() {
               gap: "8px"
             }}
           >
-            🚀 Lancer l'application
+            🚀 Lancer l&apos;application
           </a>
           
           <a 

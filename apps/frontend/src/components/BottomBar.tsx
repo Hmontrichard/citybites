@@ -41,7 +41,7 @@ export default function BottomBar({
     
     if (legsCount === 1) {
       // Single route - open directly
-      const routes = createMultiPointRouteUrls(validPlaces, userLocation);
+      const routes = createMultiPointRouteUrls(validPlaces, userLocation || undefined);
       if (routes.length > 0) {
         openInGoogleMaps(routes[0].url);
       }
@@ -57,7 +57,7 @@ export default function BottomBar({
     }
   };
 
-  const routes = showRouteModal ? createMultiPointRouteUrls(places, userLocation) : [];
+  const routes = showRouteModal ? createMultiPointRouteUrls(places, userLocation || undefined) : [];
 
   return (
     <>
@@ -218,7 +218,7 @@ export default function BottomBar({
               color: '#666',
               marginBottom: '20px'
             }}>
-              💡 <strong>Conseil :</strong> Commencez par l'étape 1, puis enchaînez avec les étapes suivantes dans Google Maps.
+              💡 <strong>Conseil :</strong> Commencez par l&apos;étape 1, puis enchaînez avec les étapes suivantes dans Google Maps.
             </div>
 
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
