@@ -1,5 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+
+// Charger les variables d'environnement depuis le fichier .env
+import dotenv from "dotenv";
+dotenv.config();
 import {
   MapsExportSchema,
   MapsExportResultSchema,

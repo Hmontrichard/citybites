@@ -67,7 +67,7 @@ export type GenerateResult = {
   summary: string;
   itinerary: {
     totalDistanceKm: number;
-    stops: Array<{ id: string; name: string; notes?: string }>;
+    stops: Array<{ id: string; name: string; notes?: string; lat: number; lon: number }>;
   };
   warnings?: string[];
   assets: Array<{ filename: string; content: string; mimeType?: string; encoding?: "base64" | "utf-8" }>;
@@ -252,7 +252,7 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
     summary,
     itinerary: {
       totalDistanceKm: route.distanceKm,
-      stops: enrichedStops.map((stop) => ({ id: stop.id, name: stop.name, notes: stop.notes })),
+      stops: enrichedStops.map((stop) => ({ id: stop.id, name: stop.name, notes: stop.notes, lat: stop.lat, lon: stop.lon })),
     },
     warnings: warnings.length > 0 ? warnings : undefined,
     assets,
