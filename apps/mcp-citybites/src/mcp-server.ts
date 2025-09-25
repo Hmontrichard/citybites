@@ -25,7 +25,7 @@ import {
   handlePlaceEnrich,
   handlePlacesSearch,
   handleRoutesOptimize,
-} from "./tools.js";
+} from "./tools/index.js";
 
 const server = new McpServer({ name: "citybites-mcp", version: "0.1.0" });
 
