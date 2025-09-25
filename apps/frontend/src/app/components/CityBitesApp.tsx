@@ -48,6 +48,15 @@ export default function CityBitesApp() {
             <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
               <h3 className="text-xl font-bold mb-4 text-center">Rechercher des lieux</h3>
               <SearchForm onSearch={handleSearch} loading={loading} />
+              <div className="mt-4 text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowSearchForm(false)}
+                  className="text-sm text-gray-600 hover:text-gray-800 underline"
+                >
+                  Voir la carte d'abord
+                </button>
+              </div>
             </div>
           </div>
         )}
