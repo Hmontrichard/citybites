@@ -1,30 +1,14 @@
-"use client";
-
-import React from 'react';
-import dynamic from 'next/dynamic';
-
-// Load main app component dynamically to avoid SSR issues
-const CityBitesApp = dynamic(
-  () => import('./components/CityBitesApp'),
-  { ssr: false }
-);
-
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-600 to-purple-800">
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-4">
-            🗺️ CityBites.AI
-          </h1>
-          <p className="text-xl text-blue-100">
-            Découvrez les meilleurs lieux de votre ville
-          </p>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
-          <CityBitesApp />
-        </div>
+    <div style={{ padding: '20px', fontFamily: 'Arial' }}>
+      <h1>✅ CityBites Frontend is WORKING!</h1>
+      <p>Next.js deployment successful</p>
+      <p>Timestamp: {new Date().toISOString()}</p>
+      <p>If you see this, the frontend is properly deployed!</p>
+      
+      <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f0f0f0' }}>
+        <h3>🔧 Debug Info:</h3>
+        <p>Environment: {process.env.NODE_ENV || 'unknown'}</p>
       </div>
     </div>
   );
