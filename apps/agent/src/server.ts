@@ -5,8 +5,32 @@ import process from "node:process";
 import { generateGuide } from "./generator.js";
 import { GenerateRequestSchema } from "./schemas.js";
 import { logger } from "./logger.js";
+import { getMcpConnection } from "./mcpClient.js";
 
 const app = express();
+
+// Global MCP readiness state
+let mcpReady = false;
+let mcpError: string | null = null;
+
+// Initialize MCP connection on startup
+async function initializeMcp() {
+  try {
+    logger.info({ msg: 'mcp:init:start' });
+    await getMcpConnection();
+    mcpReady = true;
+    mcpError = null;
+    logger.info({ msg: 'mcp:init:success' });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    mcpError = message;
+    mcpReady = false;
+    logger.error({ msg: 'mcp:init:failed', error: message });
+  }
+}
+
+// Start MCP initialization
+initializeMcp();
 
 // Security middleware
 app.use(helmet());
@@ -40,10 +64,22 @@ app.use((req, res, next) => {
 });
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
+  res.json({ 
+    status: "ok", 
+    mcpReady,
+    ...(mcpError && { mcpError }) 
+  });
 });
 
 app.post("/generate", async (req, res, next) => {
+  // Check MCP readiness before processing
+  if (!mcpReady) {
+    const errorMessage = mcpError 
+      ? `Service temporairement indisponible: ${mcpError}`
+      : "Service temporairement indisponible. Réessayez dans quelques instants.";
+    return res.status(503).json({ error: errorMessage });
+  }
+
   const parseResult = GenerateRequestSchema.safeParse(req.body);
   if (!parseResult.success) {
     return res.status(400).json({ error: "Requête invalide", details: parseResult.error.flatten() });
@@ -51,7 +87,25 @@ app.post("/generate", async (req, res, next) => {
 
   try {
     const requestId = (res as any).locals?.requestId;
+    const startTime = Date.now();
+    
+    // Set a total processing budget of 55s to stay under Fly.io 60s limit
+    const totalTimeout = setTimeout(() => {
+      logger.warn({ msg: 'generate:total_timeout', requestId, elapsed: Date.now() - startTime });
+      if (!res.headersSent) {
+        res.status(504).json({ 
+          error: "Génération interrompue (timeout). Réessayez avec une requête plus simple.",
+          partial: true
+        });
+      }
+    }, 55000);
+
     const result = await generateGuide(parseResult.data, { requestId });
+    clearTimeout(totalTimeout);
+    
+    const elapsed = Date.now() - startTime;
+    logger.info({ msg: 'generate:success', requestId, elapsed });
+    
     return res.json(result);
   } catch (error) {
     return next(error);

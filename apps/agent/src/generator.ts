@@ -121,7 +121,7 @@ export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: 
     "places.search",
     { city: parsed.city, query: parsed.theme },
     PlacesSearchResultSchema,
-    25000,
+    15000, // Reduced from 25s to 15s
     requestId,
   );
   if (places.warning) {
@@ -140,7 +140,7 @@ export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: 
     "routes.optimize",
     { points },
     RouteOptimizeResultSchema,
-    10000,
+    5000, // Reduced from 10s to 5s (simple calculation)
     requestId,
   );
 
@@ -172,7 +172,7 @@ export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: 
                 description: stop.notes,
               },
               PlaceEnrichmentSchema,
-              15000,
+              8000, // Reduced from 15s to 8s
               requestId,
             );
             break; // Success, exit retry loop
@@ -271,7 +271,7 @@ export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: 
       ],
     },
     PdfBuildResultSchema,
-    30000,
+    10000, // Reduced from 30s to 10s (but will likely return HTML due to DISABLE_PDF)
     requestId,
   );
   if (pdf.warning) {
