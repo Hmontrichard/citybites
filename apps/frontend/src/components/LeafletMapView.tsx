@@ -3,15 +3,25 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import type { PlaceFeatureCollection } from '../types/place';
 import { createSingleDestinationUrl, openInGoogleMaps } from '../utils/googleMaps';
 
 // Fix for default markers in Leaflet
+// Use locally bundled images instead of external CDN (CSP-friendly)
+// @ts-ignore - allow png imports as strings
+import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+// @ts-ignore
+import iconUrl from 'leaflet/dist/images/marker-icon.png';
+// @ts-ignore
+import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+
+// Ensure Leaflet uses the imported assets
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconRetinaUrl: (iconRetinaUrl as unknown) as string,
+  iconUrl: (iconUrl as unknown) as string,
+  shadowUrl: (shadowUrl as unknown) as string,
 });
 
 // Custom icons for different categories
