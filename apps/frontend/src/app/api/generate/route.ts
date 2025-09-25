@@ -14,6 +14,7 @@ function getAgentUrl() {
   // Provide a safe production default and treat empty strings as undefined
   const raw = (process.env.AGENT_SERVICE_URL ?? "").trim();
   const url = raw.length > 0 ? raw : "https://citybites.fly.dev";
+  console.log('[API] Using agent URL:', url); // Debug log for Vercel
   return url.replace(/\/+$/, "");
 }
 
@@ -36,16 +37,21 @@ export async function POST(request: Request) {
 
   try {
     const AGENT_URL = getAgentUrl();
+    console.log('[API] Making request to:', `${AGENT_URL}/generate`);
 
     // simple retry mechanism on 502/429
     const doRequest = async () => {
       const response = await fetch(`${AGENT_URL}/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "User-Agent": "CityBites-Frontend/1.0"
+        },
         body: JSON.stringify({ city, theme, day }),
         cache: "no-store",
         signal: controller.signal,
       });
+      console.log('[API] Response status:', response.status);
       return response;
     };
 
