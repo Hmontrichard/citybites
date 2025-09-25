@@ -7,14 +7,8 @@ type GeneratePayload = {
 };
 
 function getAgentUrl() {
-  const rawAgentUrl = process.env.AGENT_SERVICE_URL;
-
-  if (!rawAgentUrl) {
-    throw new Error(
-      "AGENT_SERVICE_URL is not configured. Set it to the public URL of the agent service.",
-    );
-  }
-
+  // Provide a safe production default to avoid downtime if env is missing
+  const rawAgentUrl = process.env.AGENT_SERVICE_URL ?? "https://citybites.fly.dev";
   return rawAgentUrl.replace(/\/+$/, "");
 }
 
