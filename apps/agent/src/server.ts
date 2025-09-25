@@ -29,11 +29,11 @@ app.use((req, res, next) => {
   const isDev = process.env.NODE_ENV === 'development';
   const allowedOrigins = isDev 
     ? ['http://localhost:3000']
-    : (process.env.ALLOWED_ORIGINS?.split(',') || []);
+    : (process.env.ALLOWED_ORIGINS?.split(',') || ['*']); // Temporary: allow all if not configured
   
   const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
+  if (allowedOrigins.includes('*') || (origin && allowedOrigins.includes(origin))) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
   }
   
   res.header('Access-Control-Allow-Methods', 'GET, POST');
