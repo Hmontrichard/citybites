@@ -29,7 +29,7 @@ export default function HomePage() {
           </p>
         </div>
         
-        <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
+        <div className="bg-white rounded-xl shadow-2xl overflow-hidden h-[80vh]">
           <CityBitesApp />
         </div>
       </div>

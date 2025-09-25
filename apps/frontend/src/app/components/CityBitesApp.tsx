@@ -31,7 +31,7 @@ export default function CityBitesApp() {
   };
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-full min-h-[70vh] flex flex-col">
       {/* Map Container */}
       <div className="flex-1 relative">
         <LeafletMapView 
