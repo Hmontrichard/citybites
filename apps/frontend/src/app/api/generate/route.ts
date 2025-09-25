@@ -32,6 +32,10 @@ export async function POST(request: Request) {
     );
   }
 
+  // Create AbortController for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
   try {
     const AGENT_URL = getAgentUrl();
     const response = await fetch(`${AGENT_URL}/generate`, {
@@ -39,17 +43,35 @@ export async function POST(request: Request) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ city, theme, day }),
       cache: "no-store",
+      signal: controller.signal,
     });
 
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-      const message = await response.text();
-      throw new Error(`Agent → ${response.status} ${message}`);
+      // Don't expose internal error details to frontend
+      console.error(`Agent error: ${response.status} ${await response.text()}`);
+      const genericMessage = response.status >= 500 
+        ? "Le service est temporairement indisponible. Réessayez plus tard."
+        : "Une erreur s'est produite lors de la génération du guide.";
+      throw new Error(genericMessage);
     }
 
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Erreur agent";
+    clearTimeout(timeoutId);
+    
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('Request timeout to agent service');
+      return NextResponse.json(
+        { error: "La génération du guide prend trop de temps. Réessayez plus tard." }, 
+        { status: 504 }
+      );
+    }
+    
+    const message = error instanceof Error ? error.message : "Le service est temporairement indisponible.";
+    console.error('Frontend API route error:', error);
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=22.0.0 <23.0.0"
   },
   "scripts": {
     "dev": "tsx src/server.ts",

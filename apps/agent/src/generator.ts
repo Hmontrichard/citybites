@@ -49,6 +49,32 @@ const CallToolResultSchema = z.object({
 
 type ToolResult = z.infer<typeof CallToolResultSchema>;
 
+async function callToolWithTimeout<T>(
+  client: any,
+  toolName: string,
+  args: any,
+  schema: z.Schema<T>,
+  timeoutMs: number = 20000
+): Promise<T> {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(`Timeout: ${toolName} took longer than ${timeoutMs}ms`)), timeoutMs);
+  });
+
+  const toolPromise = client.callTool({ name: toolName, arguments: args });
+  
+  try {
+    const rawResult = await Promise.race([toolPromise, timeoutPromise]);
+    const result = CallToolResultSchema.parse(rawResult);
+    return extractStructured(result, schema, toolName);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('Timeout:')) {
+      throw error; // Re-throw timeout errors as-is
+    }
+    throw new Error(`Tool ${toolName} failed: ${errorMessage}`);
+  }
+}
+
 function extractStructured<T>(result: ToolResult, schema: z.Schema<T>, toolName: string): T {
   if (result.isError) {
     const fallback = result.content[0]?.text ?? `Tool ${toolName} returned an error.`;
@@ -86,10 +112,13 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
 
   const warnings: string[] = [];
 
-  const placesRaw = CallToolResultSchema.parse(
-    await client.callTool({ name: "places.search", arguments: { city: parsed.city, query: parsed.theme } }),
+  const places = await callToolWithTimeout(
+    client,
+    "places.search",
+    { city: parsed.city, query: parsed.theme },
+    PlacesSearchResultSchema,
+    25000 // 25s for network-heavy operations
   );
-  const places = extractStructured(placesRaw, PlacesSearchResultSchema, "places.search");
   if (places.warning) {
     warnings.push(places.warning);
   }
@@ -101,10 +130,13 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
   const selectedPlaces = places.results.slice(0, 8);
   const points = selectedPlaces.map((place) => ({ id: place.id, lat: place.lat, lon: place.lon }));
 
-  const routeRaw = CallToolResultSchema.parse(
-    await client.callTool({ name: "routes.optimize", arguments: { points } }),
+  const route = await callToolWithTimeout(
+    client,
+    "routes.optimize",
+    { points },
+    RouteOptimizeResultSchema,
+    10000 // 10s for optimization
   );
-  const route = extractStructured(routeRaw, RouteOptimizeResultSchema, "routes.optimize");
 
   const orderSet = new Set(route.order);
   const orderedStops = selectedPlaces
@@ -117,19 +149,37 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
   await Promise.all(
     enrichmentTargets.map(async (stop) => {
       try {
-        const enrichRaw = CallToolResultSchema.parse(
-          await client.callTool({
-            name: "places.enrich",
-            arguments: {
-              id: stop.id,
-              name: stop.name,
-              city: parsed.city,
-              theme: parsed.theme,
-              description: stop.notes,
-            },
-          }),
-        );
-        const enrichment = extractStructured(enrichRaw, PlaceEnrichmentSchema, "places.enrich");
+        // Retry enrichment up to 2 times with backoff
+        let enrichment;
+        let lastError;
+        
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            enrichment = await callToolWithTimeout(
+              client,
+              "places.enrich",
+              {
+                id: stop.id,
+                name: stop.name,
+                city: parsed.city,
+                theme: parsed.theme,
+                description: stop.notes,
+              },
+              PlaceEnrichmentSchema,
+              15000 // 15s for AI enrichment
+            );
+            break; // Success, exit retry loop
+          } catch (error) {
+            lastError = error;
+            if (attempt < 2) {
+              await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // 1s, 2s backoff
+            }
+          }
+        }
+        
+        if (!enrichment) {
+          throw lastError || new Error('Enrichment failed after retries');
+        }
         if (enrichment.warning) {
           warnings.push(`${stop.name} · ${enrichment.warning}`);
         }
@@ -152,15 +202,21 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
 
   const exportableStops = enrichedStops.map(({ enrichment, ...rest }) => rest);
 
-  const geojsonRaw = CallToolResultSchema.parse(
-    await client.callTool({ name: "maps.export", arguments: { places: exportableStops, format: "geojson" } }),
+  const geojson = await callToolWithTimeout(
+    client,
+    "maps.export",
+    { places: exportableStops, format: "geojson" },
+    MapsExportResultSchema,
+    5000 // 5s for export operations
   );
-  const geojson = extractStructured(geojsonRaw, MapsExportResultSchema, "maps.export");
 
-  const kmlRaw = CallToolResultSchema.parse(
-    await client.callTool({ name: "maps.export", arguments: { places: exportableStops, format: "kml" } }),
+  const kml = await callToolWithTimeout(
+    client,
+    "maps.export",
+    { places: exportableStops, format: "kml" },
+    MapsExportResultSchema,
+    5000 // 5s for export operations
   );
-  const kml = extractStructured(kmlRaw, MapsExportResultSchema, "maps.export");
 
   const dayLabel = formatDateForDisplay(parsed.day);
   const baseTips = buildDefaultTips(parsed.city, parsed.theme, route.distanceKm);
@@ -182,32 +238,32 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
     }
   });
 
-  const pdfRaw = CallToolResultSchema.parse(
-    await client.callTool({
-      name: "pdf.build",
-      arguments: {
-        title: `CityBites — ${parsed.city}`,
-        subtitle: `${parsed.theme} · ${dayLabel}`,
-        city: parsed.city,
-        theme: parsed.theme,
-        summary: `Une journée ${parsed.theme.toLowerCase()} à ${parsed.city}`,
-        distanceKm: route.distanceKm,
-        tips: baseTips,
-        highlights: pdfHighlights.slice(0, 6),
-        days: [
-          {
-            date: parsed.day,
-            blocks: enrichedStops.map((stop, index) => ({
-              time: `${index + 1}e étape`,
-              name: stop.name,
-              summary: stop.notes ?? "À découvrir",
-            })),
-          },
-        ],
-      },
-    }),
+  const pdf = await callToolWithTimeout(
+    client,
+    "pdf.build",
+    {
+      title: `CityBites — ${parsed.city}`,
+      subtitle: `${parsed.theme} · ${dayLabel}`,
+      city: parsed.city,
+      theme: parsed.theme,
+      summary: `Une journée ${parsed.theme.toLowerCase()} à ${parsed.city}`,
+      distanceKm: route.distanceKm,
+      tips: baseTips,
+      highlights: pdfHighlights.slice(0, 6),
+      days: [
+        {
+          date: parsed.day,
+          blocks: enrichedStops.map((stop, index) => ({
+            time: `${index + 1}e étape`,
+            name: stop.name,
+            summary: stop.notes ?? "À découvrir",
+          })),
+        },
+      ],
+    },
+    PdfBuildResultSchema,
+    30000 // 30s for PDF generation with Playwright
   );
-  const pdf = extractStructured(pdfRaw, PdfBuildResultSchema, "pdf.build");
   if (pdf.warning) {
     warnings.push(pdf.warning);
   }
