@@ -6,6 +6,10 @@
 app = 'citybites'
 primary_region = 'cdg'
 
+[env]
+  DISABLE_PDF = "true"
+  OVERPASS_USER_AGENT = "CityBites/1.0"
+
 [http_service]
   internal_port = 4000
   force_https = true

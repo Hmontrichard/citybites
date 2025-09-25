@@ -35,6 +35,9 @@ RUN npm --prefix apps/agent prune --omit=dev && \
 FROM base
 ENV PORT=4000
 ENV MCP_PREFIX=/app/apps/mcp-citybites
+ENV DISABLE_PDF=true
+ENV OVERPASS_USER_AGENT="CityBites/1.0"
+ENV OVERPASS_ENDPOINTS="https://overpass-api.de/api/interpreter,https://overpass.kumi.systems/api/interpreter"
 
 # Install runtime dependencies for Chromium
 RUN apt-get update -qq && \
