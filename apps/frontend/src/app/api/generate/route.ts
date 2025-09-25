@@ -7,9 +7,10 @@ type GeneratePayload = {
 };
 
 function getAgentUrl() {
-  // Provide a safe production default to avoid downtime if env is missing
-  const rawAgentUrl = process.env.AGENT_SERVICE_URL ?? "https://citybites.fly.dev";
-  return rawAgentUrl.replace(/\/+$/, "");
+  // Provide a safe production default and treat empty strings as undefined
+  const raw = (process.env.AGENT_SERVICE_URL ?? "").trim();
+  const url = raw.length > 0 ? raw : "https://citybites.fly.dev";
+  return url.replace(/\/+$/, "");
 }
 
 export async function POST(request: Request) {
