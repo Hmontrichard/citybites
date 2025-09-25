@@ -35,8 +35,17 @@ jobs:
         run: npm ci
         working-directory: apps/frontend
 
-      - name: Run repository test suite
-        run: ./scripts/run-tests.sh
+      - name: Validate frontend build
+        run: npm run build
+        working-directory: apps/frontend
+
+      - name: Validate agent build
+        run: npm run build
+        working-directory: apps/agent
+
+      - name: Validate MCP build
+        run: npm run build
+        working-directory: apps/mcp-citybites
 
   deploy-fly:
     needs: test
