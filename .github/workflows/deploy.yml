@@ -99,16 +99,14 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel
 
-      - name: Pull Vercel environment
+      - name: Pull Vercel environment (repo root)
         run: vercel pull --yes --environment=production --token ${{ secrets.VERCEL_TOKEN }}
-        working-directory: apps/frontend
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Deploy Next.js frontend to Vercel
+      - name: Deploy Next.js frontend to Vercel (repo root)
         run: vercel deploy --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
-        working-directory: apps/frontend
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
