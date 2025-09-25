@@ -55,7 +55,7 @@ export function usePlaces(): UsePlacesReturn {
       console.log('🔍 Searching places with:', formData);
       console.log('📡 Making request to /generate...');
 
-      const response = await fetch('/generate', {
+      const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

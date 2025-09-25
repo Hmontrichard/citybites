@@ -1,13 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  async rewrites() {
-    return [
-      {
-        source: '/generate',
-        destination: 'http://localhost:4000/generate',
-      },
-    ];
-  },
+  // Removed conflicting rewrites - using API Routes instead
 };
 
 export default nextConfig;
