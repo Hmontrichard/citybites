@@ -6,10 +6,13 @@ on:
     branches-ignore:
       - main
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
+jobs:
+  build-agent:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,9 +31,59 @@ jobs:
         run: npm ci
         working-directory: apps/agent
 
-      - name: Install dependencies (legacy MCP)
+      - name: Validate agent build
+        run: npm run build
+        working-directory: apps/agent
+
+  build-mcp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.19.0
+          cache: npm
+          cache-dependency-path: |
+            apps/agent/package-lock.json
+            apps/frontend/package-lock.json
+            apps/mcp-citybites/package-lock.json
+
+      - name: Install dependencies (MCP)
         run: npm ci
         working-directory: apps/mcp-citybites
+        env:
+          SKIP_PLAYWRIGHT_INSTALL: "true"
+          PW_SKIP_BROWSER_DOWNLOAD: "1"
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+          DISABLE_PDF: "true"
+
+      - name: Validate MCP build
+        run: npm run build
+        working-directory: apps/mcp-citybites
+        env:
+          SKIP_PLAYWRIGHT_INSTALL: "true"
+          PW_SKIP_BROWSER_DOWNLOAD: "1"
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+          DISABLE_PDF: "true"
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.19.0
+          cache: npm
+          cache-dependency-path: |
+            apps/agent/package-lock.json
+            apps/frontend/package-lock.json
+            apps/mcp-citybites/package-lock.json
 
       - name: Install dependencies (frontend)
         run: npm ci
@@ -39,11 +92,3 @@ jobs:
       - name: Validate frontend build
         run: npm run build
         working-directory: apps/frontend
-
-      - name: Validate agent build
-        run: npm run build
-        working-directory: apps/agent
-
-      - name: Validate MCP build
-        run: npm run build
-        working-directory: apps/mcp-citybites
