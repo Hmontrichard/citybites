@@ -52,8 +52,10 @@ export function usePlaces(): UsePlacesReturn {
     }));
 
     try {
-      console.log('🔍 Searching places with:', formData);
-      console.log('📡 Making request to /generate...');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('🔍 Searching places with:', formData);
+        console.log('📡 Making request to /api/generate...');
+      }
 
       const response = await fetch('/api/generate', {
         method: 'POST',
@@ -64,23 +66,29 @@ export function usePlaces(): UsePlacesReturn {
         signal: abortController.signal,
       });
       
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('📡 Response status:', response.status);
+        console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+      }
 
       if (!response.ok) {
-        console.log('❌ Response not OK:', response.status, response.statusText);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('❌ Response not OK:', response.status, response.statusText);
+        }
         const errorData = await response.json().catch(() => null);
-        console.log('❌ Error data:', errorData);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('❌ Error data:', errorData);
+        }
         throw new Error(errorData?.error ?? `Erreur HTTP ${response.status}`);
       }
 
-      console.log('📦 Parsing JSON response...');
       const data: GenerateResponse = await response.json();
-      console.log('📦 JSON parsed successfully, data type:', typeof data);
-      console.log('✅ API Response:', data);
-      
-      // Check if we have coordinate data
-      console.log('🗺️  Checking coordinate data in places...');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('📦 JSON parsed successfully, data type:', typeof data);
+        console.log('✅ API Response:', data);
+        // Check if we have coordinate data
+        console.log('🗺️  Checking coordinate data in places...');
+      }
       if (data.itinerary?.stops) {
         data.itinerary.stops.forEach((stop, index) => {
           console.log(`Place ${index + 1}:`, {
@@ -95,10 +103,14 @@ export function usePlaces(): UsePlacesReturn {
 
       // Try to enrich places (will use 0,0 coordinates if none provided)
       const enrichedPlaces = enrichPlacesFromResponse(data, formData.theme);
-      console.log('📍 Enriched places (before geocoding):', enrichedPlaces);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('📍 Enriched places (before geocoding):', enrichedPlaces);
+      }
       
       // Add geocoding to get real coordinates
-      console.log('🌍 Starting geocoding process...');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('🌍 Starting geocoding process...');
+      }
       const geocodedPlaces = await geocodePlacesWithFallback(
         enrichedPlaces.map(p => ({ id: p.id, name: p.name, lat: p.lat, lon: p.lon, notes: p.notes })),
         formData.city
@@ -115,11 +127,15 @@ export function usePlaces(): UsePlacesReturn {
         };
       });
       
-      console.log('📍 Final places (after geocoding):', finalPlaces);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('📍 Final places (after geocoding):', finalPlaces);
+      }
 
       // Convert to GeoJSON
       const geoJSON = placesToGeoJSON(finalPlaces);
-      console.log('🗺️  GeoJSON:', geoJSON);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('🗺️  GeoJSON:', geoJSON);
+      }
 
       setState({
         data,
@@ -135,7 +151,9 @@ export function usePlaces(): UsePlacesReturn {
         return;
       }
 
-      console.error('❌ API Error:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('❌ API Error:', error);
+      }
       const errorMessage = error instanceof Error ? error.message : 'Une erreur est survenue';
       
       setState(prev => ({

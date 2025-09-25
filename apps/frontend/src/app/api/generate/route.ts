@@ -37,13 +37,24 @@ export async function POST(request: Request) {
 
   try {
     const AGENT_URL = getAgentUrl();
-    const response = await fetch(`${AGENT_URL}/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ city, theme, day }),
-      cache: "no-store",
-      signal: controller.signal,
-    });
+
+    // simple retry mechanism on 502/429
+    const doRequest = async () => {
+      const response = await fetch(`${AGENT_URL}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ city, theme, day }),
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      return response;
+    };
+
+    let response = await doRequest();
+    if ((response.status === 502 || response.status === 429) && typeof setTimeout === 'function') {
+      await new Promise((r) => setTimeout(r, 500));
+      response = await doRequest();
+    }
 
     clearTimeout(timeoutId);
 

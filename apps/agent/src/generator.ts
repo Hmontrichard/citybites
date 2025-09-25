@@ -10,6 +10,7 @@ import {
   PlaceEnrichmentSchema,
   type PlaceEnrichment,
 } from "./schemas.js";
+import { logger } from "./logger.js";
 
 function formatDateForDisplay(value: string) {
   const date = new Date(value);
@@ -54,13 +55,14 @@ async function callToolWithTimeout<T>(
   toolName: string,
   args: any,
   schema: z.Schema<T>,
-  timeoutMs: number = 20000
+  timeoutMs: number = 20000,
+  requestId?: string,
 ): Promise<T> {
   const timeoutPromise = new Promise<never>((_, reject) => {
     setTimeout(() => reject(new Error(`Timeout: ${toolName} took longer than ${timeoutMs}ms`)), timeoutMs);
   });
 
-  const toolPromise = client.callTool({ name: toolName, arguments: args });
+  const toolPromise = client.callTool({ name: toolName, arguments: { ...args, meta: { requestId } } });
   
   try {
     const rawResult = await Promise.race([toolPromise, timeoutPromise]);
@@ -106,18 +108,21 @@ export type GenerateResult = {
   }>;
 };
 
-export async function generateGuide(input: GenerateRequest): Promise<GenerateResult> {
+export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: string }): Promise<GenerateResult> {
   const parsed = GenerateRequestSchema.parse(input);
   const { client } = await getMcpConnection();
 
   const warnings: string[] = [];
+  const requestId = ctx?.requestId;
+  logger.info({ msg: 'generate:start', requestId, city: parsed.city, theme: parsed.theme, day: parsed.day });
 
   const places = await callToolWithTimeout(
     client,
     "places.search",
     { city: parsed.city, query: parsed.theme },
     PlacesSearchResultSchema,
-    25000 // 25s for network-heavy operations
+    25000,
+    requestId,
   );
   if (places.warning) {
     warnings.push(places.warning);
@@ -135,7 +140,8 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
     "routes.optimize",
     { points },
     RouteOptimizeResultSchema,
-    10000 // 10s for optimization
+    10000,
+    requestId,
   );
 
   const orderSet = new Set(route.order);
@@ -166,7 +172,8 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
                 description: stop.notes,
               },
               PlaceEnrichmentSchema,
-              15000 // 15s for AI enrichment
+              15000,
+              requestId,
             );
             break; // Success, exit retry loop
           } catch (error) {
@@ -207,7 +214,8 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
     "maps.export",
     { places: exportableStops, format: "geojson" },
     MapsExportResultSchema,
-    5000 // 5s for export operations
+    5000,
+    requestId,
   );
 
   const kml = await callToolWithTimeout(
@@ -215,7 +223,8 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
     "maps.export",
     { places: exportableStops, format: "kml" },
     MapsExportResultSchema,
-    5000 // 5s for export operations
+    5000,
+    requestId,
   );
 
   const dayLabel = formatDateForDisplay(parsed.day);
@@ -262,7 +271,8 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
       ],
     },
     PdfBuildResultSchema,
-    30000 // 30s for PDF generation with Playwright
+    30000,
+    requestId,
   );
   if (pdf.warning) {
     warnings.push(pdf.warning);
@@ -304,7 +314,7 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
     .filter((stop) => stop.enrichment)
     .map((stop) => ({ id: stop.id, ...(stop.enrichment as PlaceEnrichment) }));
 
-  return {
+  const result: GenerateResult = {
     summary,
     itinerary: {
       totalDistanceKm: route.distanceKm,
@@ -314,6 +324,8 @@ export async function generateGuide(input: GenerateRequest): Promise<GenerateRes
     assets,
     enrichments: enrichmentsList.length > 0 ? enrichmentsList : undefined,
   };
+  logger.info({ msg: 'generate:success', requestId, stops: result.itinerary.stops.length, distanceKm: result.itinerary.totalDistanceKm });
+  return result;
 }
 
 export type { GenerateRequest };

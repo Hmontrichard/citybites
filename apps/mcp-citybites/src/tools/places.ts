@@ -191,7 +191,21 @@ function escapeForOverpass(value: string) {
 
 export function buildOverpassQuery(geocode: GeocodeResult, filters: ThemeFilter[]): string {
   const { south, north, west, east } = geocode.boundingBox;
-  const bbox = `(${south},${west},${north},${east})`;
+  // Basic bbox validation to avoid huge queries
+  const height = Math.abs(north - south);
+  const width = Math.abs(east - west);
+  // If bbox is bigger than ~5 degrees, clamp by 5 degrees window around center
+  const MAX_DEG = 5;
+  let s = south, n = north, w = west, e = east;
+  if (height > MAX_DEG || width > MAX_DEG) {
+    const cLat = (north + south) / 2;
+    const cLon = (east + west) / 2;
+    s = cLat - MAX_DEG / 2;
+    n = cLat + MAX_DEG / 2;
+    w = cLon - MAX_DEG / 2;
+    e = cLon + MAX_DEG / 2;
+  }
+  const bbox = `(${s},${w},${n},${e})`;
   const overpassFilters = filters
     .map((filter) => {
       const selector = `["${escapeForOverpass(filter.key)}"="${escapeForOverpass(filter.value)}"]`;

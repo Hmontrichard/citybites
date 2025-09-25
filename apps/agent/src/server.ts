@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import process from "node:process";
 import { generateGuide } from "./generator.js";
 import { GenerateRequestSchema } from "./schemas.js";
+import { logger } from "./logger.js";
 
 const app = express();
 
@@ -42,23 +43,31 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-app.post("/generate", async (req, res) => {
+app.post("/generate", async (req, res, next) => {
   const parseResult = GenerateRequestSchema.safeParse(req.body);
   if (!parseResult.success) {
     return res.status(400).json({ error: "Requête invalide", details: parseResult.error.flatten() });
   }
 
   try {
-    const result = await generateGuide(parseResult.data);
+    const requestId = (res as any).locals?.requestId;
+    const result = await generateGuide(parseResult.data, { requestId });
     return res.json(result);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Erreur agent";
-    console.error("[agent] génération échouée", error);
-    return res.status(502).json({ error: message });
+    return next(error);
   }
 });
-
 const port = Number(process.env.PORT ?? 4000);
+// Global error handler
+import type { Request, Response, NextFunction } from "express";
+
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  const requestId = (res as any).locals?.requestId;
+  const message = err instanceof Error ? err.message : "Erreur agent";
+  logger.error({ msg: 'unhandled:error', error: message, requestId });
+  res.status(502).json({ error: message, requestId });
+});
+
 app.listen(port, () => {
-  console.log(`Agent CityBites écoute sur http://localhost:${port}`);
+  logger.info({ msg: 'agent:listen', url: `http://localhost:${port}` });
 });
