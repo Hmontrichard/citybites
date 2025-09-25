@@ -7,12 +7,11 @@ type GeneratePayload = {
 };
 
 function getAgentUrl() {
-  const rawAgentUrl =
-    process.env.AGENT_SERVICE_URL ?? (process.env.NODE_ENV === "development" ? "http://localhost:4000" : undefined);
+  const rawAgentUrl = process.env.AGENT_SERVICE_URL;
 
   if (!rawAgentUrl) {
     throw new Error(
-      "AGENT_SERVICE_URL is not configured. Set it to the public URL of the agent service before deploying.",
+      "AGENT_SERVICE_URL is not configured. Set it to the public URL of the agent service.",
     );
   }
 

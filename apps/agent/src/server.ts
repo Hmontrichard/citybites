@@ -24,16 +24,13 @@ app.use(limiter);
 // Body parsing with size limit
 app.use(express.json({ limit: '200kb' }));
 
-// CORS - restrict in production
+// CORS - production configuration
 app.use((req, res, next) => {
-  const isDev = process.env.NODE_ENV === 'development';
-  const allowedOrigins = isDev 
-    ? ['http://localhost:3000']
-    : (process.env.ALLOWED_ORIGINS?.split(',') || ['*']); // Temporary: allow all if not configured
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['https://citybites.vercel.app'];
   
   const origin = req.headers.origin;
-  if (allowedOrigins.includes('*') || (origin && allowedOrigins.includes(origin))) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
   }
   
   res.header('Access-Control-Allow-Methods', 'GET, POST');

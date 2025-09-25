@@ -6,7 +6,6 @@
     "node": ">=22.0.0 <23.0.0"
   },
   "scripts": {
-    "dev": "tsx src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js"
   },
