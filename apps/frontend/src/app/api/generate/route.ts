@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 
+// Ensure this route runs on Node.js runtime
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 type GeneratePayload = {
   city?: unknown;
   theme?: unknown;

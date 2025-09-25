@@ -1,0 +1,11 @@
+{
+  "name": "citybites-monorepo",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix apps/frontend run build",
+    "install-frontend": "npm --prefix apps/frontend install"
+  },
+  "workspaces": [
+    "apps/*"
+  ]
+}
