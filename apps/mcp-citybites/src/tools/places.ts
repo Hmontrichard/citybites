@@ -255,24 +255,6 @@ export async function executeOverpass(query: string, cacheKey: string) {
   throw new Error(errors.join(" | "));
 }
 
-export function fallbackPlaces(city: string, geocode?: GeocodeResult) {
-  const formattedCity = city.trim() || "Ville";
-  const baseLat = geocode?.lat ?? 48.8566;
-  const baseLon = geocode?.lon ?? 2.3522;
-  const offsets = [
-    { id: "fallback-1", name: `${formattedCity} Coffee Crawl`, dLat: 0.004, dLon: 0.002, notes: "Commence la journée avec un espresso signature." },
-    { id: "fallback-2", name: `${formattedCity} Market Hall`, dLat: -0.003, dLon: 0.003, notes: "Food court local pour déjeuner rapide." },
-    { id: "fallback-3", name: `${formattedCity} Night Bar`, dLat: 0.002, dLon: -0.003, notes: "Cocktails signature en fin de parcours." },
-  ];
-
-  return offsets.map((spot) => ({
-    id: spot.id,
-    name: spot.name,
-    lat: Number((baseLat + spot.dLat).toFixed(6)),
-    lon: Number((baseLon + spot.dLon).toFixed(6)),
-    notes: spot.notes,
-  }));
-}
 
 export async function handlePlacesSearch(input: PlacesSearchInput): Promise<PlacesSearchOutput> {
   const { city, query } = input;
@@ -284,7 +266,7 @@ export async function handlePlacesSearch(input: PlacesSearchInput): Promise<Plac
   } catch (error) {
     const message = error instanceof Error ? error.message : "Ville introuvable";
     logger.warn({ msg: 'geocode:failed', city, error: message });
-    return { source: "fallback", warning: "Ville introuvable, suggestions génériques proposées.", results: fallbackPlaces(city) };
+    throw new Error(message);
   }
 
   const filters = pickFilters(query);
@@ -317,13 +299,13 @@ export async function handlePlacesSearch(input: PlacesSearchInput): Promise<Plac
 
     if (results.length === 0) {
       logger.warn({ msg: 'overpass:empty', city, query });
-      return { source: "fallback", warning: "Aucun lieu trouvé pour ce thème, suggestions génériques proposées.", results: fallbackPlaces(city, geocode) };
+      throw new Error("Aucun lieu trouvé pour ce thème.");
     }
 
     return { source: "overpass", results };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur Overpass";
-    logger.warn({ msg: 'overpass:fallback', city, query, error: message });
-    return { source: "fallback", warning: "Overpass indisponible, données fictives retournées.", results: fallbackPlaces(city, geocode) };
+    logger.warn({ msg: 'overpass:error', city, query, error: message });
+    throw new Error(`Overpass indisponible: ${message}`);
   }
 }

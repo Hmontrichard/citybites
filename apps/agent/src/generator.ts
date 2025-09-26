@@ -154,47 +154,39 @@ export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: 
 
   await Promise.all(
     enrichmentTargets.map(async (stop) => {
-      try {
-        // Retry enrichment up to 2 times with backoff
-        let enrichment;
-        let lastError;
-        
-        for (let attempt = 1; attempt <= 2; attempt++) {
-          try {
-            enrichment = await callToolWithTimeout(
-              client,
-              "places.enrich",
-              {
-                id: stop.id,
-                name: stop.name,
-                city: parsed.city,
-                theme: parsed.theme,
-                description: stop.notes,
-              },
-              PlaceEnrichmentSchema,
-              8000, // Reduced from 15s to 8s
-              requestId,
-            );
-            break; // Success, exit retry loop
-          } catch (error) {
-            lastError = error;
-            if (attempt < 2) {
-              await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // 1s, 2s backoff
-            }
+      // Retry enrichment up to 2 times with backoff; if it still fails, propagate the error
+      let enrichment;
+      let lastError;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          enrichment = await callToolWithTimeout(
+            client,
+            "places.enrich",
+            {
+              id: stop.id,
+              name: stop.name,
+              city: parsed.city,
+              theme: parsed.theme,
+              description: stop.notes,
+            },
+            PlaceEnrichmentSchema,
+            8000,
+            requestId,
+          );
+          break; // Success
+        } catch (error) {
+          lastError = error;
+          if (attempt < 2) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // 1s, 2s backoff
           }
         }
-        
-        if (!enrichment) {
-          throw lastError || new Error('Enrichment failed after retries');
-        }
-        if (enrichment.warning) {
-          warnings.push(`${stop.name} · ${enrichment.warning}`);
-        }
-        enrichments.set(stop.id, enrichment);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        warnings.push(`${stop.name} · enrichissement indisponible (${message})`);
       }
+
+      if (!enrichment) {
+        throw lastError || new Error('Enrichment failed after retries');
+      }
+
+      enrichments.set(stop.id, enrichment);
     }),
   );
 

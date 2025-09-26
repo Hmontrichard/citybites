@@ -34,13 +34,7 @@ export async function handlePlaceEnrich(input: PlaceEnrichInput): Promise<PlaceE
   if (cached) return cached;
 
   if (!OPENAI_API_KEY) {
-    const result = PlaceEnrichResultSchema.parse({
-      summary: `Découvre ${input.name}. Enrichissement désactivé (clé API manquante).`,
-      highlights: [],
-      warning: "OPENAI_API_KEY manquante",
-    });
-    enrichCache.set(cacheKey, result);
-    return result;
+    throw new Error("OPENAI_API_KEY manquante");
   }
 
   const contextDescription = [
@@ -92,12 +86,6 @@ export async function handlePlaceEnrich(input: PlaceEnrichInput): Promise<PlaceE
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.warn({ msg: 'enrich:failed', id: input.id, error: message });
-    const result = PlaceEnrichResultSchema.parse({
-      summary: `À explorer : ${input.name}. (Enrichissement indisponible)`,
-      highlights: [],
-      warning: message,
-    });
-    enrichCache.set(cacheKey, result);
-    return result;
+    throw new Error(message);
   }
 }

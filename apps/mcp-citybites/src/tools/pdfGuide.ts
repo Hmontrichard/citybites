@@ -163,19 +163,18 @@ export async function handlePdfBuild(input: PdfBuildInput): Promise<PdfBuildOutp
   try {
     const pdfBuffer = await renderHtmlToPdf(html);
     if (!pdfBuffer) {
-      return { filename: "guide.html", content: html, format: "html", mimeType: "text/html", warning: "Mode PDF désactivé, HTML retourné." };
+      throw new Error("PDF désactivé (DISABLE_PDF=true)");
     }
     return {
       filename: "guide.pdf",
       content: pdfBuffer.toString("base64"),
       format: "pdf",
       encoding: "base64",
-      mimeType: "application/pdf",
-      htmlFallback: html,
+      mimeType: "application/pdf"
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Impossible de générer le PDF";
     logger.warn({ msg: 'pdf:failed', error: message });
-    return { filename: "guide.html", content: html, format: "html", mimeType: "text/html", warning: "PDF non disponible, HTML renvoyé." };
+    throw new Error(message);
   }
 }
