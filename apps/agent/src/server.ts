@@ -40,7 +40,7 @@ app.disable('x-powered-by');
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 60, // limit each IP to 60 requests per windowMs
-  message: { error: "Trop de requêtes, réessayez plus tard." },
+  message: { error: "Too many requests. Please try again later." },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
@@ -75,14 +75,14 @@ app.post("/generate", async (req, res, next) => {
   // Check MCP readiness before processing
   if (!mcpReady) {
     const errorMessage = mcpError 
-      ? `Service temporairement indisponible: ${mcpError}`
-      : "Service temporairement indisponible. Réessayez dans quelques instants.";
+      ? `Service temporarily unavailable: ${mcpError}`
+      : "Service temporarily unavailable. Please try again shortly.";
     return res.status(503).json({ error: errorMessage });
   }
 
   const parseResult = GenerateRequestSchema.safeParse(req.body);
   if (!parseResult.success) {
-    return res.status(400).json({ error: "Requête invalide", details: parseResult.error.flatten() });
+    return res.status(400).json({ error: "Invalid request", details: parseResult.error.flatten() });
   }
 
   try {
@@ -94,7 +94,7 @@ app.post("/generate", async (req, res, next) => {
       logger.warn({ msg: 'generate:total_timeout', requestId, elapsed: Date.now() - startTime });
       if (!res.headersSent) {
         res.status(504).json({ 
-          error: "Génération interrompue (timeout). Réessayez avec une requête plus simple.",
+          error: "Generation timed out. Please try a simpler request.",
           partial: true
         });
       }
@@ -117,7 +117,7 @@ import type { Request, Response, NextFunction } from "express";
 
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   const requestId = (res as any).locals?.requestId;
-  const message = err instanceof Error ? err.message : "Erreur agent";
+  const message = err instanceof Error ? err.message : "Agent error";
   logger.error({ msg: 'unhandled:error', error: message, requestId });
   res.status(502).json({ error: message, requestId });
 });

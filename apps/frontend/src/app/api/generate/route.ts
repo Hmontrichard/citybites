@@ -25,8 +25,8 @@ export async function POST(request: Request) {
   const day = typeof body.day === "string" ? body.day : "";
 
   if (!city || !theme || !day) {
-    return NextResponse.json(
-      { error: "Merci de renseigner la ville, le thème et le jour." },
+return NextResponse.json(
+      { error: "Please provide city, theme and day." },
       { status: 400 },
     );
   }
@@ -67,8 +67,8 @@ export async function POST(request: Request) {
       // Don't expose internal error details to frontend
       console.error(`Agent error: ${response.status} ${await response.text()}`);
       const genericMessage = response.status >= 500 
-        ? "Le service est temporairement indisponible. Réessayez plus tard."
-        : "Une erreur s'est produite lors de la génération du guide.";
+        ? "The service is temporarily unavailable. Please try again later."
+        : "An error occurred while generating the guide.";
       throw new Error(genericMessage);
     }
 
@@ -79,13 +79,13 @@ export async function POST(request: Request) {
     
     if (error instanceof Error && error.name === 'AbortError') {
       console.error('Request timeout to agent service');
-      return NextResponse.json(
-        { error: "La génération du guide prend trop de temps. Réessayez plus tard." }, 
+return NextResponse.json(
+        { error: "Guide generation timed out. Please try again later." },
         { status: 504 }
       );
     }
     
-    const message = error instanceof Error ? error.message : "Le service est temporairement indisponible.";
+    const message = error instanceof Error ? error.message : "The service is temporarily unavailable.";
     console.error('Frontend API route error:', error);
     return NextResponse.json({ error: message }, { status: 502 });
   }

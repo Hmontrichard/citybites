@@ -2,6 +2,28 @@
 const nextConfig = {
   // Security headers for production
   async headers() {
+    const csp = [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "object-src 'none'",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      // Only our own scripts
+      "script-src 'self'",
+      // Next.js injects inline styles; allow inline styles but restrict everything else
+      "style-src 'self' 'unsafe-inline'",
+      // Leaflet tiles and local assets
+      "img-src 'self' data: blob: https://*.tile.openstreetmap.org",
+      // Outbound fetches only to our agent service
+      "connect-src 'self' https://citybites.fly.dev",
+      // Fonts
+      "font-src 'self' data:",
+      // Workers (if any)
+      "worker-src 'self' blob:",
+      // Upgrade any HTTP to HTTPS
+      "upgrade-insecure-requests",
+    ].join('; ');
+
     return [
       {
         source: "/(.*)",
@@ -12,8 +34,7 @@ const nextConfig = {
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
-          // CSP adjusted for Leaflet and OSM tiles; refine as needed
-          { key: "Content-Security-Policy", value: "default-src 'self'; img-src 'self' data: https://*.tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://citybites.fly.dev;" },
+          { key: "Content-Security-Policy", value: csp },
         ],
       },
     ];

@@ -53,7 +53,7 @@ function buildGuideHtml({
 
   const highlightsList = highlights.length
     ? `<section class="section section-highlights">
-        <h2>À goûter absolument</h2>
+        <h2>Must try</h2>
         <ul>
           ${highlights.map((item) => `<li>${escapeHtml(item)}</li>`).join("\n        ")}
         </ul>
@@ -62,17 +62,17 @@ function buildGuideHtml({
 
   const tipsList = tips.length
     ? `<section class="section section-tips">
-        <h2>Budget & conseils</h2>
+        <h2>Budget & tips</h2>
         <ul>
           ${tips.map((tip) => `<li>${escapeHtml(tip)}</li>`).join("\n        ")}
         </ul>
       </section>`
     : `<section class="section section-tips">
-        <h2>Budget & conseils</h2>
+        <h2>Budget & tips</h2>
         <ul>
-          <li>Prévois une enveloppe flexible (entrées + repas) selon tes envies.</li>
-          <li>Réserve les tables du soir à l’avance, surtout le week-end.</li>
-          <li>Garde une option “pluie” et une option “soirée” pour chaque bloc.</li>
+          <li>Keep a flexible budget (entries + meals) based on your preferences.</li>
+          <li>Book evening tables in advance, especially on weekends.</li>
+          <li>Have a “rain” and “evening” option for each block.</li>
         </ul>
       </section>`;
 
@@ -104,7 +104,7 @@ function buildGuideHtml({
     .join("\n");
 
   return `<!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -152,7 +152,7 @@ function buildGuideHtml({
         ${daySections}
         ${tipsList}
       </main>
-      <footer>Créé avec CityBites — partage tes découvertes gourmandes.</footer>
+<footer>Created with CityBites — share your foodie discoveries.</footer>
     </div>
   </body>
 </html>`;

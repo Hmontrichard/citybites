@@ -258,13 +258,13 @@ export async function executeOverpass(query: string, cacheKey: string) {
 
 export async function handlePlacesSearch(input: PlacesSearchInput): Promise<PlacesSearchOutput> {
   const { city, query } = input;
-  if (!city.trim()) throw new Error("Ville manquante");
+if (!city.trim()) throw new Error("City is required");
 
   let geocode: GeocodeResult;
   try {
     geocode = await geocodeCity(city);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Ville introuvable";
+const message = error instanceof Error ? error.message : "City not found";
     logger.warn({ msg: 'geocode:failed', city, error: message });
     throw new Error(message);
   }
@@ -286,7 +286,7 @@ export async function handlePlacesSearch(input: PlacesSearchInput): Promise<Plac
         if (!coordinates) return undefined;
 
         const tags = element.tags ?? {};
-        const name = tags.name ?? (tags as any)["name:fr"] ?? "Lieu sans nom";
+const name = tags.name ?? (tags as any)["name:en"] ?? "Unnamed place";
         const notesParts: string[] = [];
         if ((tags as any).cuisine) notesParts.push(`Cuisine: ${(tags as any).cuisine}`);
         if ((tags as any)["opening_hours"]) notesParts.push(`Horaires: ${(tags as any)["opening_hours"]}`);
@@ -299,13 +299,13 @@ export async function handlePlacesSearch(input: PlacesSearchInput): Promise<Plac
 
     if (results.length === 0) {
       logger.warn({ msg: 'overpass:empty', city, query });
-      throw new Error("Aucun lieu trouvé pour ce thème.");
+throw new Error("No places found for this theme.");
     }
 
     return { source: "overpass", results };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Erreur Overpass";
+const message = error instanceof Error ? error.message : "Overpass error";
     logger.warn({ msg: 'overpass:error', city, query, error: message });
-    throw new Error(`Overpass indisponible: ${message}`);
+throw new Error(`Overpass unavailable: ${message}`);
   }
 }

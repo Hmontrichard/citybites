@@ -79,7 +79,7 @@ export function usePlaces(): UsePlacesReturn {
         if (process.env.NODE_ENV !== 'production') {
           console.log('❌ Error data:', errorData);
         }
-        throw new Error(errorData?.error ?? `Erreur HTTP ${response.status}`);
+        throw new Error(errorData?.error ?? `HTTP error ${response.status}`);
       }
 
       const data: GenerateResponse = await response.json();
@@ -154,7 +154,7 @@ export function usePlaces(): UsePlacesReturn {
       if (process.env.NODE_ENV !== 'production') {
         console.error('❌ API Error:', error);
       }
-      const errorMessage = error instanceof Error ? error.message : 'Une erreur est survenue';
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
       
       setState(prev => ({
         ...prev,

@@ -54,7 +54,7 @@ export default function CityBitesApp() {
                   onClick={() => setShowSearchForm(false)}
                   className="text-sm text-gray-600 hover:text-gray-800 underline"
                 >
-                  Voir la carte d'abord
+                  Voir la carte d&apos;abord
                 </button>
               </div>
             </div>

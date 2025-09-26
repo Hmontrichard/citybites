@@ -18,7 +18,7 @@ function formatDateForDisplay(value: string) {
     return value;
   }
 
-  return date.toLocaleDateString("fr-FR", {
+  return date.toLocaleDateString("en-US", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -27,13 +27,13 @@ function formatDateForDisplay(value: string) {
 }
 
 function buildDefaultTips(city: string, theme: string, distanceKm: number) {
-  const location = city.trim() ? city : "la ville";
-  const themeLower = theme.trim() ? theme.toLowerCase() : "l'expérience";
+  const location = city.trim() ? city : "the city";
+  const themeLower = theme.trim() ? theme.toLowerCase() : "the experience";
 
   return [
-    `Réserve les lieux incontournables de ${location} au moins 24h à l'avance si possible.`,
-    `Prévoyez un budget flexible pour ${themeLower} — ajoute un stop bonus si le temps le permet.`,
-    `Distance prévue : ${distanceKm.toFixed(1)} km. Pense à des alternatives en cas de pluie ou de fermeture.`,
+    `Book popular spots in ${location} at least 24h in advance if you can.`,
+    `Keep a flexible budget for ${themeLower} — add a bonus stop if time allows.`,
+    `Planned distance: ${distanceKm.toFixed(1)} km. Have alternatives in case of rain or closures.`,
   ];
 }
 
@@ -129,7 +129,7 @@ export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: 
   }
 
   if (!places.results.length) {
-    throw new Error("Aucun lieu trouvé pour cette combinaison ville/thème.");
+    throw new Error("No places found for this city/theme combination.");
   }
 
   const selectedPlaces = places.results.slice(0, 8);
@@ -247,7 +247,7 @@ export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: 
       subtitle: `${parsed.theme} · ${dayLabel}`,
       city: parsed.city,
       theme: parsed.theme,
-      summary: `Une journée ${parsed.theme.toLowerCase()} à ${parsed.city}`,
+      summary: `A ${parsed.theme.toLowerCase()} day in ${parsed.city}`,
       distanceKm: route.distanceKm,
       tips: baseTips,
       highlights: pdfHighlights.slice(0, 6),
@@ -255,7 +255,7 @@ export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: 
         {
           date: parsed.day,
           blocks: enrichedStops.map((stop, index) => ({
-            time: `${index + 1}e étape`,
+            time: `Step ${index + 1}`,
             name: stop.name,
             summary: stop.notes ?? "À découvrir",
           })),
@@ -270,7 +270,7 @@ export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: 
     warnings.push(pdf.warning);
   }
 
-  const summary = `Itinéraire ${parsed.theme.toLowerCase()} à ${parsed.city} pour le ${dayLabel}.`;
+  const summary = `A ${parsed.theme.toLowerCase()} itinerary in ${parsed.city} for ${dayLabel}.`;
 
   const assets: GenerateResult["assets"] = [
     {
