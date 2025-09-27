@@ -34,7 +34,14 @@ export async function handlePlaceEnrich(input: PlaceEnrichInput): Promise<PlaceE
   if (cached) return cached;
 
   if (!OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY manquante");
+    // Deterministic fallback
+    const fallback: PlaceEnrichOutput = {
+      summary: `${input.name}: local spot for ${input.theme ?? 'discovery'} in ${input.city ?? 'the city'}.` ,
+      highlights: ["Ambiance locale", "Bon rapport qualité/prix"],
+      warning: "LLM unavailable, using heuristic summary.",
+    };
+    enrichCache.set(cacheKey, fallback);
+    return fallback;
   }
 
   const contextDescription = [
@@ -86,6 +93,13 @@ export async function handlePlaceEnrich(input: PlaceEnrichInput): Promise<PlaceE
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.warn({ msg: 'enrich:failed', id: input.id, error: message });
-    throw new Error(message);
+    // Deterministic fallback on failure
+    const fallback: PlaceEnrichOutput = {
+      summary: `${input.name}: ${input.theme ?? 'discovery'} stop.`,
+      highlights: ["Accessible", "Populaire"],
+      warning: "LLM error, using heuristic summary.",
+    };
+    enrichCache.set(cacheKey, fallback);
+    return fallback;
   }
 }

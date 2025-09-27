@@ -2,6 +2,7 @@ import { z } from "zod";
 import { LRUCache } from "lru-cache";
 import { normalise } from "../utils/text.js";
 import { logger } from "../logger.js";
+import { fetchWithRetry } from "../lib/fetchWithRetry.js";
 
 const DEFAULT_OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
@@ -153,7 +154,7 @@ export async function geocodeCity(city: string): Promise<GeocodeResult> {
   url.searchParams.set("format", "json");
   url.searchParams.set("limit", "1");
 
-  const response = await fetch(url.toString(), { headers: { "User-Agent": OVERPASS_USER_AGENT } });
+  const response = await fetchWithRetry(url.toString(), { headers: { "User-Agent": OVERPASS_USER_AGENT }, timeoutMs: 10000 });
   if (!response.ok) throw new Error(`Nominatim ${response.status}`);
 
   const data = (await response.json()) as Array<{
@@ -226,13 +227,14 @@ export async function executeOverpass(query: string, cacheKey: string) {
   for (const endpoint of endpointsToTry) {
     const start = Date.now();
     try {
-      const response = await fetch(endpoint, {
+      const response = await fetchWithRetry(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "User-Agent": OVERPASS_USER_AGENT,
         },
         body: new URLSearchParams({ data: query }).toString(),
+        timeoutMs: 15000,
       });
 
       if (!response.ok) {
@@ -274,7 +276,27 @@ const message = error instanceof Error ? error.message : "City not found";
   const cacheKey = `${normalise(city)}::${query ? normalise(query) : "_default"}::${geocode.boundingBox.south.toFixed(3)}::${geocode.boundingBox.east.toFixed(3)}`;
 
   try {
-    const elements = await executeOverpass(overpassQuery, cacheKey);
+    let elements = await executeOverpass(overpassQuery, cacheKey);
+
+    // If empty, expand bbox slightly and retry once
+    if (elements.length === 0) {
+      const g = geocode;
+      const cLat = (g.boundingBox.north + g.boundingBox.south) / 2;
+      const cLon = (g.boundingBox.east + g.boundingBox.west) / 2;
+      const expand = 0.05; // ~5km-ish depending on latitude
+      const expanded: GeocodeResult = {
+        label: g.label,
+        lat: g.lat,
+        lon: g.lon,
+        boundingBox: { south: cLat - expand, north: cLat + expand, west: cLon - expand, east: cLon + expand },
+      };
+      const retryQuery = buildOverpassQuery(expanded, filters);
+      try {
+        elements = await executeOverpass(retryQuery, cacheKey + "::expanded");
+      } catch (e) {
+        // keep elements empty
+      }
+    }
 
     const results = elements
       .map((element: OverpassElement): { id: string; name: string; lat: number; lon: number; notes?: string } | undefined => {
@@ -299,13 +321,13 @@ const name = tags.name ?? (tags as any)["name:en"] ?? "Unnamed place";
 
     if (results.length === 0) {
       logger.warn({ msg: 'overpass:empty', city, query });
-throw new Error("No places found for this theme.");
+      return { source: "overpass", warning: "No places found after expanding search area.", results };
     }
 
     return { source: "overpass", results };
   } catch (error) {
-const message = error instanceof Error ? error.message : "Overpass error";
+    const message = error instanceof Error ? error.message : "Overpass error";
     logger.warn({ msg: 'overpass:error', city, query, error: message });
-throw new Error(`Overpass unavailable: ${message}`);
+    throw new Error(`Overpass unavailable: ${message}`);
   }
 }

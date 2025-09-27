@@ -95,6 +95,7 @@ export type GenerateResult = {
   summary: string;
   itinerary: {
     totalDistanceKm: number;
+    polyline?: string;
     stops: Array<{ id: string; name: string; notes?: string; lat: number; lon: number }>;
   };
   warnings?: string[];
@@ -154,9 +155,8 @@ export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: 
 
   await Promise.all(
     enrichmentTargets.map(async (stop) => {
-      // Retry enrichment up to 2 times with backoff; if it still fails, propagate the error
+      // Retry enrichment up to 2 times with backoff; if it still fails, continue with warning
       let enrichment;
-      let lastError;
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           enrichment = await callToolWithTimeout(
@@ -175,7 +175,6 @@ export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: 
           );
           break; // Success
         } catch (error) {
-          lastError = error;
           if (attempt < 2) {
             await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // 1s, 2s backoff
           }
@@ -183,7 +182,8 @@ export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: 
       }
 
       if (!enrichment) {
-        throw lastError || new Error('Enrichment failed after retries');
+        warnings.push(`Enrichissement indisponible pour ${stop.name}`);
+        return;
       }
 
       enrichments.set(stop.id, enrichment);
@@ -263,7 +263,7 @@ export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: 
       ],
     },
     PdfBuildResultSchema,
-    10000, // Reduced from 30s to 10s (but will likely return HTML due to DISABLE_PDF)
+    12000,
     requestId,
   );
   if (pdf.warning) {
@@ -310,6 +310,7 @@ export async function generateGuide(input: GenerateRequest, ctx?: { requestId?: 
     summary,
     itinerary: {
       totalDistanceKm: route.distanceKm,
+      polyline: (route as any).polyline,
       stops: enrichedStops.map((stop) => ({ id: stop.id, name: stop.name, notes: stop.notes, lat: stop.lat, lon: stop.lon })),
     },
     warnings: warnings.length > 0 ? warnings : undefined,

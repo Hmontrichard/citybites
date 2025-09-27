@@ -17,6 +17,7 @@ export const PlacesSearchResultSchema = z.object({
 export const RouteOptimizeResultSchema = z.object({
   order: z.array(z.string()),
   distanceKm: z.number(),
+  polyline: z.string().optional(),
 });
 
 export const MapsExportResultSchema = z.object({

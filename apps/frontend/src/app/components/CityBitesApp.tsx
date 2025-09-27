@@ -3,7 +3,9 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 import { usePlaces } from '../../hooks/usePlaces';
-import type { SearchFormData } from '../../types/place';
+import type { SearchFormData, EnrichedPlace } from '../../types/place';
+import DegradedNotice from '../../components/DegradedNotice';
+import ServiceWorkerRegister from '../../components/ServiceWorkerRegister';
 
 // Load components dynamically to avoid SSR issues
 const LeafletMapView = dynamic(
@@ -17,8 +19,15 @@ const BottomBar = dynamic(
 );
 
 export default function CityBitesApp() {
-  const { data, places, geoJSON, loading, error, searchPlaces, clearResults } = usePlaces();
+  const { data, places, geoJSON, loading, error, searchPlaces, clearResults, loadCached } = usePlaces();
   const [showSearchForm, setShowSearchForm] = React.useState(true);
+  const [polyline, setPolyline] = React.useState<string | undefined>(undefined);
+  const [orderedPlaces, setOrderedPlaces] = React.useState<EnrichedPlace[]>([]);
+
+  React.useEffect(() => {
+    if (data?.itinerary?.polyline) setPolyline(data.itinerary.polyline);
+    if (places.length) setOrderedPlaces(places);
+  }, [data, places]);
 
   const handleSearch = (formData: SearchFormData) => {
     searchPlaces(formData);
@@ -34,8 +43,14 @@ export default function CityBitesApp() {
     <div className="h-full min-h-[70vh] flex flex-col">
       {/* Map Container */}
       <div className="flex-1 relative">
+        {/* SW register */}
+        <ServiceWorkerRegister />
+        {/* Degraded mode banner */}
+        <DegradedNotice data={data} />
+
         <LeafletMapView 
           geoJSON={geoJSON}
+          polyline={polyline}
           onPlaceClick={(placeId) => {
             console.log('Place clicked:', placeId);
           }}
@@ -78,15 +93,26 @@ export default function CityBitesApp() {
               <div className="text-red-500 text-4xl mb-4">⚠️</div>
               <h3 className="text-lg font-semibold mb-2">Erreur</h3>
               <p className="text-gray-700 mb-4">{error}</p>
-              <button
-                onClick={() => {
-                  clearResults();
-                  setShowSearchForm(true);
-                }}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Nouvelle recherche
-              </button>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => {
+                    clearResults();
+                    setShowSearchForm(true);
+                  }}
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Nouvelle recherche
+                </button>
+                <button
+                  onClick={() => {
+                    const ok = loadCached();
+                    if (!ok) alert("Aucun guide hors-ligne en cache");
+                  }}
+                  className="px-4 py-2 bg-amber-500 text-white rounded hover:bg-amber-600"
+                >
+                  Ouvrir hors-ligne
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -106,8 +132,32 @@ export default function CityBitesApp() {
       {places.length > 0 && (
         <div className="h-auto">
           <BottomBar
-            places={places}
+            places={orderedPlaces.length ? orderedPlaces : places}
             geoJSON={geoJSON}
+            onReorder={async (np) => {
+              setOrderedPlaces(np);
+              // Call /api/optimize to recompute polyline and order
+              try {
+                const resp = await fetch('/api/optimize', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ points: np.map(p => ({ id: p.id, lat: p.lat, lon: p.lon })) })
+                });
+                if (resp.ok) {
+                  const data = await resp.json();
+                  const idOrder: string[] = (data?.order || []);
+                  if (idOrder.length) {
+                    const reordered = [...np].sort((a, b) => idOrder.indexOf(a.id) - idOrder.indexOf(b.id));
+                    setOrderedPlaces(reordered);
+                  }
+                  if (data?.polyline) setPolyline(data.polyline);
+                }
+              } catch (e) {
+                console.warn('optimize failed', e);
+              }
+            }}
+            onPolylineChange={(p) => setPolyline(p)}
+            data={data}
           />
         </div>
       )}

@@ -6,7 +6,6 @@ import type {
   PlaceFeatureCollection 
 } from '../types/place';
 import { enrichPlacesFromResponse, placesToGeoJSON } from '../utils/geojson';
-import { geocodePlacesWithFallback } from '../utils/geocoding';
 
 interface UsePlacesState {
   data: GenerateResponse | null;
@@ -20,6 +19,7 @@ interface UsePlacesReturn extends UsePlacesState {
   searchPlaces: (formData: SearchFormData) => Promise<void>;
   clearResults: () => void;
   retry: () => void;
+  loadCached: () => boolean;
 }
 
 export function usePlaces(): UsePlacesReturn {
@@ -101,34 +101,10 @@ export function usePlaces(): UsePlacesReturn {
         });
       }
 
-      // Try to enrich places (will use 0,0 coordinates if none provided)
-      const enrichedPlaces = enrichPlacesFromResponse(data, formData.theme);
+      // Build enriched places directly from backend lat/lon
+      const finalPlaces = enrichPlacesFromResponse(data, formData.theme);
       if (process.env.NODE_ENV !== 'production') {
-        console.log('📍 Enriched places (before geocoding):', enrichedPlaces);
-      }
-      
-      // Add geocoding to get real coordinates
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('🌍 Starting geocoding process...');
-      }
-      const geocodedPlaces = await geocodePlacesWithFallback(
-        enrichedPlaces.map(p => ({ id: p.id, name: p.name, lat: p.lat, lon: p.lon, notes: p.notes })),
-        formData.city
-      );
-      
-      // Merge geocoded coordinates with enriched data
-      const finalPlaces = enrichedPlaces.map(place => {
-        const geocoded = geocodedPlaces.find(g => g.id === place.id);
-        return {
-          ...place,
-          lat: geocoded?.lat || place.lat,
-          lon: geocoded?.lon || place.lon,
-          address: geocoded?.address || place.address,
-        };
-      });
-      
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('📍 Final places (after geocoding):', finalPlaces);
+        console.log('📍 Places from backend coordinates:', finalPlaces);
       }
 
       // Convert to GeoJSON
@@ -144,6 +120,10 @@ export function usePlaces(): UsePlacesReturn {
         loading: false,
         error: null,
       });
+
+      try {
+        localStorage.setItem('citybites:lastResult', JSON.stringify(data));
+      } catch {}
 
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -186,10 +166,25 @@ export function usePlaces(): UsePlacesReturn {
     }
   }, [searchPlaces]);
 
+  const loadCached = useCallback(() => {
+    try {
+      const raw = localStorage.getItem('citybites:lastResult');
+      if (!raw) return false;
+      const data: GenerateResponse = JSON.parse(raw);
+      const places = enrichPlacesFromResponse(data, data?.summary || undefined);
+      const geoJSON = placesToGeoJSON(places);
+      setState({ data, places, geoJSON, loading: false, error: null });
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   return {
     ...state,
     searchPlaces,
     clearResults,
     retry,
+    loadCached,
   };
 }

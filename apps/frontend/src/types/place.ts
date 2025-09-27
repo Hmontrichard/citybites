@@ -37,7 +37,8 @@ export interface GenerateResponse {
   summary: string;
   itinerary: {
     totalDistanceKm: number;
-    stops: Array<{ id: string; name: string; notes?: string }>;
+    polyline?: string;
+    stops: Array<{ id: string; name: string; notes?: string; lat: number; lon: number }>;
   };
   warnings?: string[];
   assets: Array<{ 
@@ -46,6 +47,7 @@ export interface GenerateResponse {
     mimeType?: string; 
     encoding?: "base64" | "utf-8" 
   }>;
+  signedUrls?: Record<string, string>;
   enrichments?: Array<{
     id: string;
     summary: string;
@@ -83,6 +85,7 @@ export interface PlaceFeature {
     address?: string;
     dishes?: string[];
     reviews?: string[];
+    order?: number;
   };
 }
 

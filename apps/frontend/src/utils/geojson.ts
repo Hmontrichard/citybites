@@ -86,8 +86,8 @@ export function enrichPlacesFromResponse(
     const basePlace: Place = {
       id: stop.id,
       name: stop.name,
-      lat: 0, // Will need to be populated from your API
-      lon: 0, // Will need to be populated from your API
+      lat: (stop as any).lat ?? 0,
+      lon: (stop as any).lon ?? 0,
       notes: stop.notes,
     };
 
@@ -108,7 +108,7 @@ export function enrichPlacesFromResponse(
  * Convert enriched places to GeoJSON FeatureCollection for Mapbox
  */
 export function placesToGeoJSON(places: EnrichedPlace[]): PlaceFeatureCollection {
-  const features: PlaceFeature[] = places.map(place => ({
+  const features: PlaceFeature[] = places.map((place, idx) => ({
     type: 'Feature',
     geometry: {
       type: 'Point',
@@ -128,6 +128,7 @@ export function placesToGeoJSON(places: EnrichedPlace[]): PlaceFeatureCollection
       address: place.address,
       dishes: place.dishes || [],
       reviews: place.reviews || [],
+      order: idx,
     },
   }));
 

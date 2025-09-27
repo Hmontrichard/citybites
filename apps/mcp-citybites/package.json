@@ -17,7 +17,14 @@
     "playwright": "^1.48.2",
     "zod": "^3.23.8",
     "lru-cache": "^10.4.3",
-    "pino": "^9.5.0"
+    "pino": "^9.5.0",
+    "@opentelemetry/api": "^1.8.0",
+    "@opentelemetry/sdk-node": "^0.55.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.55.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.55.0",
+    "@opentelemetry/resources": "^1.23.0",
+    "@opentelemetry/semantic-conventions": "^1.23.0",
+    "@sentry/node": "^8.23.0"
   },
   "devDependencies": {
     "@flydotio/dockerfile": "^0.7.10",

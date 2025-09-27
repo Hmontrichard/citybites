@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { EnrichedPlace, UserLocation } from '../types/place';
 import { 
   createMultiPointRouteUrls, 
@@ -10,12 +10,18 @@ import {
 import { downloadGeoJSON } from '../utils/geojson';
 import type { PlaceFeatureCollection } from '../types/place';
 
+import StopsList from './StopsList';
+import Downloads from './Downloads';
+
 interface BottomBarProps {
   places: EnrichedPlace[];
   geoJSON: PlaceFeatureCollection | null;
   userLocation?: UserLocation | null;
   className?: string;
   style?: React.CSSProperties;
+  onReorder?: (newPlaces: EnrichedPlace[]) => void;
+  onPolylineChange?: (polyline?: string) => void;
+  data?: any;
 }
 
 export default function BottomBar({ 
@@ -23,14 +29,22 @@ export default function BottomBar({
   geoJSON, 
   userLocation, 
   className, 
-  style 
+  style,
+  onReorder,
+  onPolylineChange,
+  data
 }: BottomBarProps) {
   const [showRouteModal, setShowRouteModal] = useState(false);
+  const [localPlaces, setLocalPlaces] = useState<EnrichedPlace[]>(places);
+
+  useEffect(() => {
+    setLocalPlaces(places);
+  }, [places]);
 
   if (places.length === 0) return null;
 
   const handleCompleteRoute = () => {
-    const validPlaces = places.filter(p => p.lat !== 0 && p.lon !== 0);
+    const validPlaces = localPlaces.filter(p => p.lat !== 0 && p.lon !== 0);
     
     if (validPlaces.length === 0) {
       alert('Aucun lieu avec des coordonnées valides trouvé.');
@@ -57,7 +71,7 @@ export default function BottomBar({
     }
   };
 
-  const routes = showRouteModal ? createMultiPointRouteUrls(places, userLocation || undefined) : [];
+  const routes = showRouteModal ? createMultiPointRouteUrls(localPlaces, userLocation || undefined) : [];
 
   return (
     <>
@@ -80,6 +94,17 @@ export default function BottomBar({
         }}
         className={className}
       >
+        {/* Reorder list */}
+        <div style={{ flex: '1 1 300px', minWidth: 280 }}>
+          <StopsList
+            places={localPlaces}
+            onReorder={(np) => {
+              setLocalPlaces(np);
+              onReorder && onReorder(np);
+            }}
+          />
+        </div>
+
         {/* Route Button */}
         <button
           onClick={handleCompleteRoute}
@@ -98,7 +123,7 @@ export default function BottomBar({
           }}
         >
           🗺️ Itinéraire complet
-          {estimateLegsNeeded(places.length, !!userLocation) > 1 && (
+          {estimateLegsNeeded(localPlaces.length, !!userLocation) > 1 && (
             <span style={{ 
               fontSize: '10px', 
               backgroundColor: 'rgba(255,255,255,0.2)',
@@ -110,7 +135,14 @@ export default function BottomBar({
           )}
         </button>
 
-        {/* Export Button */}
+        {/* Downloads (inline or signed URLs) */}
+        {data && (
+          <div style={{ flex: '1 1 200px', minWidth: 200 }}>
+            <Downloads data={data} />
+          </div>
+        )}
+
+        {/* Export Button (client-built GeoJSON) */}
         <button
           onClick={handleExportGeoJSON}
           disabled={!geoJSON}
@@ -136,7 +168,7 @@ export default function BottomBar({
           color: '#666',
           marginLeft: 'auto'
         }}>
-          {places.length} lieu{places.length > 1 ? 'x' : ''}
+          {localPlaces.length} lieu{localPlaces.length > 1 ? 'x' : ''}
         </div>
       </div>
 

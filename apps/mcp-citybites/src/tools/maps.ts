@@ -28,12 +28,12 @@ export function handleMapsExport(input: MapsExportInput): MapsExportOutput {
       })),
     } satisfies Record<string, unknown>;
 
-    return { filename: "map.geojson", content: JSON.stringify(geojson, null, 2), mimeType: "application/geo+json" };
+    return { filename: "map.geojson", content: JSON.stringify(geojson, null, 2), mimeType: "application/geo+json; charset=utf-8" };
   }
 
   const kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>\n${places
     .map((place) => `<Placemark><name>${escapeHtml(place.name)}</name><Point><coordinates>${place.lon},${place.lat},0</coordinates></Point></Placemark>`)
     .join("\n")}\n</Document></kml>`;
 
-  return { filename: "map.kml", content: kml, mimeType: "application/vnd.google-earth.kml+xml" };
+  return { filename: "map.kml", content: kml, mimeType: "application/vnd.google-earth.kml+xml; charset=utf-8" };
 }

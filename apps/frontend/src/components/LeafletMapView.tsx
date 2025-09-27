@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { PlaceFeatureCollection } from '../types/place';
@@ -24,8 +24,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: (shadowUrl as unknown) as string,
 });
 
-// Custom icons for different categories
-const createCustomIcon = (category: string) => {
+// Custom icons for different categories with numeric labels
+const createCustomIcon = (category: string, label?: number) => {
   const colors: Record<string, string> = {
     restaurant: '#ff6b35',
     cafe: '#8b4513',
@@ -38,13 +38,14 @@ const createCustomIcon = (category: string) => {
   };
 
   const color = colors[category] || colors.other;
+  const text = typeof label === 'number' ? String(label) : '';
   
   return L.divIcon({
     className: 'custom-marker',
     html: `
       <div style="
-        width: 20px;
-        height: 20px;
+        width: 26px;
+        height: 26px;
         background-color: ${color};
         border: 2px solid white;
         border-radius: 50%;
@@ -53,20 +54,14 @@ const createCustomIcon = (category: string) => {
         align-items: center;
         justify-content: center;
         color: white;
-        font-size: 10px;
-        font-weight: bold;
+        font-size: 12px;
+        font-weight: 700;
       ">
-        ${category === 'restaurant' ? '🍽️' : 
-          category === 'cafe' ? '☕' :
-          category === 'bar' ? '🍺' :
-          category === 'museum' ? '🏛️' :
-          category === 'park' ? '🌳' :
-          category === 'shop' ? '🛍️' :
-          category === 'attraction' ? '🎯' : '📍'}
+        ${text || '•'}
       </div>
     `,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
   });
 };
 
@@ -94,6 +89,19 @@ function FitBounds({ geoJSON }: { geoJSON: PlaceFeatureCollection }) {
     }
   }, [geoJSON, map]);
 
+  return null;
+}
+
+// Component to fit bounds to polyline when provided
+function FitPolyline({ encoded }: { encoded: string }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!encoded) return;
+    const coords = decodePolyline(encoded);
+    if (!coords.length) return;
+    const bounds = L.latLngBounds(coords.map(([lat, lon]) => [lat, lon] as [number, number]));
+    map.fitBounds(bounds, { padding: [20, 20], maxZoom: 15 });
+  }, [encoded, map]);
   return null;
 }
 
@@ -166,13 +174,33 @@ interface LeafletMapViewProps {
   onPlaceClick?: (placeId: string) => void;
   className?: string;
   style?: React.CSSProperties;
+  polyline?: string; // encoded polyline from backend
+}
+
+function decodePolyline(encoded: string): [number, number][] {
+  // Google polyline decoder -> returns [lat, lon]
+  let index = 0, lat = 0, lon = 0;
+  const coordinates: [number, number][] = [];
+  while (index < encoded.length) {
+    let b, shift = 0, result = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    const dlat = (result & 1) ? ~(result >> 1) : (result >> 1);
+    lat += dlat;
+    shift = 0; result = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    const dlon = (result & 1) ? ~(result >> 1) : (result >> 1);
+    lon += dlon;
+    coordinates.push([lat / 1e5, lon / 1e5]);
+  }
+  return coordinates;
 }
 
 export default function LeafletMapView({ 
   geoJSON, 
   onPlaceClick, 
   className, 
-  style 
+  style,
+  polyline
 }: LeafletMapViewProps) {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
 
@@ -239,7 +267,7 @@ export default function LeafletMapView({
             <Marker
               key={properties.id}
               position={[lat, lon]}
-              icon={createCustomIcon(properties.category)}
+              icon={createCustomIcon(properties.category, (properties as any).order !== undefined ? (properties as any).order + 1 : undefined)}
               eventHandlers={{
                 click: () => {
                   console.log('🖱️ Place clicked:', properties.name);
@@ -317,7 +345,19 @@ export default function LeafletMapView({
         })}
 
         {/* Fit bounds to show all places */}
-        {geoJSON && <FitBounds geoJSON={geoJSON} />}
+        {polyline ? (
+          <FitPolyline encoded={polyline} />
+        ) : (
+          geoJSON && <FitBounds geoJSON={geoJSON} />
+        )}
+
+        {/* Route polyline */}
+        {polyline && (
+          <Polyline
+            positions={decodePolyline(polyline).map(([lat, lon]) => [lat, lon] as [number, number])}
+            pathOptions={{ color: '#ff4757', weight: 4 }}
+          />
+        )}
       </MapContainer>
     </div>
   );

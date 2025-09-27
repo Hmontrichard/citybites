@@ -163,7 +163,15 @@ export async function handlePdfBuild(input: PdfBuildInput): Promise<PdfBuildOutp
   try {
     const pdfBuffer = await renderHtmlToPdf(html);
     if (!pdfBuffer) {
-      throw new Error("PDF désactivé (DISABLE_PDF=true)");
+      // Fallback to HTML response
+      return {
+        filename: "guide.html",
+        content: html,
+        format: "html",
+        encoding: "utf-8",
+        mimeType: "text/html",
+        warning: "PDF disabled, returning HTML.",
+      };
     }
     return {
       filename: "guide.pdf",
@@ -175,6 +183,14 @@ export async function handlePdfBuild(input: PdfBuildInput): Promise<PdfBuildOutp
   } catch (error) {
     const message = error instanceof Error ? error.message : "Impossible de générer le PDF";
     logger.warn({ msg: 'pdf:failed', error: message });
-    throw new Error(message);
+    // Fallback to HTML on error as well
+    return {
+      filename: "guide.html",
+      content: html,
+      format: "html",
+      encoding: "utf-8",
+      mimeType: "text/html",
+      warning: message,
+    };
   }
 }

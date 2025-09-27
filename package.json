@@ -1,0 +1,17 @@
+{
+  "name": "citybites",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.0.0 <23.0.0"
+  },
+  "scripts": {
+    "build": "npm run -w packages/shared build && npm run -w apps/mcp-citybites build && npm run -w apps/agent build && npm run -w apps/frontend build",
+    "typecheck": "npm run -w packages/shared build --silent && npm run -w apps/mcp-citybites build --silent && npm run -w apps/agent build --silent && npm run -w apps/frontend build --silent",
+    "lint": "echo 'No root lint configured'",
+    "test": "npm run -w apps/mcp-citybites test --if-present && npm run -w apps/agent test --if-present && npm run -w apps/frontend test --if-present"
+  }
+}
